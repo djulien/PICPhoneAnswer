@@ -6,11 +6,8 @@
 #ifndef _COMPILER_H
 #define _COMPILER_H
 
-#include "helpers.h"
-
 //xc8 automatically select correct device header defs
 //#include <xc.h>
-
 //define predictable types;
 #include <stdint.h> //uint*_t
 
@@ -232,6 +229,23 @@ typedef union
 #define uint16_ptr_t  uint2x8_t
 
 
+#ifndef WREG_ADDR
+//#undef WREG //#def conflict
+ #define WREG_ADDR  NONBANKED_ADDR(0) //0x70
+ volatile __at(WREG_ADDR) uint8_t WREG; //dummy reg; will be removed by asm fixup
+// volatile bit LEZ @0x70.0; //<= 0
+#endif
+typedef struct
+{
+//    unsigned      : 7;
+    unsigned NEVER: 1;
+} DummyBits_t;
+volatile AT_NONBANKED(0) DummyBits_t dummy_bits;
+//volatile bit /*ALWAYS @0x70.0,*/ NEVER @0x70.0; //dummy flags to keep/remove code
+#define NEVER  dummy_bits.NEVER
+#define ALWAYS  !NEVER
+
+
 //longer names (for reability/searchability):
 #define DCARRY  DC
 #define CARRY  C
@@ -259,6 +273,9 @@ typedef union
  #ifdef WPUB_ADDR
   #define WPUBC  WPUB
   #define WPUBC_ADDR  WPUB_ADDR
+  #define IFWPUBC(stmt)  stmt
+ #else
+  #define IFWPUBC(ignored)  //nop
  #endif
  #ifdef ANSELB_ADDR
   #define ANSELBC  ANSELB
@@ -286,6 +303,9 @@ typedef union
  #ifdef WPUC_ADDR
   #define WPUBC  WPUC
   #define WPUBC_ADDR  WPUC_ADDR
+  #define IFWPUBC(stmt)  stmt
+ #else
+  #define IFWPUBC(ignored)  //nop
  #endif
  #ifdef ANSELC_ADDR
   #define ANSELBC  ANSELC
@@ -325,34 +345,6 @@ typedef union
  #error RED_MSG "[ERROR] No Port A?"
  #define IFPORTA(stmt)  //nop
 #endif
-
-//include port# with pin# for more generic code:
-#define PORTOF(portpin)  ((portpin) & 0xF0)
-#define PINOF(portpin)  ((portpin) & 0x0F)
-//too complex:#define PORTPIN(port, pin)  (IIF((port) & 0xF, (port) << 4, port) | ((pin) & 0xF)) //allow port# in either nibble
-#define PORTPIN(port, pin)  (PORTOF(((port) << 4) | (port)) | PINOF(pin)) //allow port# in either nibble
-
-
-#ifdef _PORTA
- #define isPORTA(portpin)  (PORTOF(portpin) == _PORTA)
-#else
- #define isPORTA(ignored)  FALSE
-#endif
-#ifdef _PORTB
- #define isPORTB(portpin)  (PORTOF(portpin) == _PORTB)
-#else
- #define isPORTB(ignored)  FALSE
-#endif
-#ifdef _PORTC
- #define isPORTC(portpin)  (PORTOF(portpin) == _PORTC)
-#else
- #define isPORTC(ignored)  FALSE
-#endif
-
-#define PORTAPIN(portpin)  IIFNZ(isPORTA(portpin), PINOF(portpin))
-#define PORTBPIN(portpin)  IIFNZ(isPORTB(portpin), PINOF(portpin))
-#define PORTCPIN(portpin)  IIFNZ(isPORTC(portpin), PINOF(portpin))
-#define PORTBCPIN(portpin)  IIFNZ(isPORTBC(portpin), PINOF(portpin))
 
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -409,25 +401,29 @@ typedef union
 
 #define BITADDR(adrs)  (adrs)/8.(adrs)%8 //for use with @ on bit vars
  
-//bits:
-#ifdef HTS
+//misc bits:
+//#ifdef _HTS
+// #define HFIOFS  HTS
+// #define _HFIOFS  _HTS
+//#endif
+#ifndef _HFIOFS
  #define HFIOFS  HTS
+ #define _HFIOFS  _HTS
 #endif
 
-#ifdef NOT_RAPU
+#ifdef _NOT_RAPU
  #define NOT_WPUEN  NOT_RAPU
+ #define _NOT_WPUEN  _NOT_RAPU
 #endif
 
-#ifdef TMR1CS
+#ifdef _TMR1CS
  #define TMR1CS0  TMR1CS
+ #define _TMR1CS0  _TMR1CS
 #endif
 
-#if defined(SCS) && !defined(SCS0)
+#ifdef _SCS //defined(SCS) && !defined(SCS0)
  #define SCS0  SCS
-#endif
-
-#ifndef HFIOFS
- #define HFIOFS  HTS
+ #define _SCS0  _SCS
 #endif
 
 
@@ -589,11 +585,20 @@ INLINE void nop()
     __asm; \
     subwf val, F; /*updates target reg*/ __endasm; \
 }
-#define addwfc(val)  \
-{ \
+#ifdef PIC16X
+ #define addwfc(val)  \
+ { \
     __asm; \
     addwfc val, F; /*updates target reg*/ __endasm; \
-}
+ }
+#else
+ #define addwfc(val)  \
+ { \
+    if (CARRY) WREG += 1; /*need to add Carry separately; preserve WREG value and leave Carry set correctly afterward*/ \
+    __asm; \
+    addwf val, F; /*updates target reg*/ __endasm; \
+ }
+#endif
 #define andwf(val)  \
 { \
     __asm; \
@@ -700,73 +705,6 @@ INLINE VOID rl_nc(reg)  \\
 }
 
 
-//convert bit# to pin mask:
-//takes 7 instr always, compared to a variable shift which would take 2 * #shift positions == 2 - 14 instr (not counting conditional branching)
-//#if 1
-#define bit2mask_WREG(bitnum)  \
-{ \
-	WREG = 0x01; \
-	if (bitnum & 0b010) WREG = 0x04; \
-	if (bitnum & 0b001) WREG += WREG; \
-	if (bitnum & 0b100) swap(WREG); \
-}
-
-#ifdef COMPILER_DEBUG //debug
- #ifndef debug
-  #define debug() //define debug chain
- #endif
-//define globals to shorten symbol names (local vars use function name as prefix):
-    volatile AT_NONBANKED(0) uint8_t bitmask0, bitmask1, bitmask2, bitmask3, bitmask4, bitmask5, bitmask6, bitmask7;
- INLINE void bitmask_debug(void)
- {
-    debug(); //incl prev debug info
-    bit2mask_WREG(0); bitmask0 = WREG; //should be 0x01
-    bit2mask_WREG(1); bitmask1 = WREG; //0x02
-    bit2mask_WREG(2); bitmask2 = WREG; //0x04
-    bit2mask_WREG(3); bitmask3 = WREG; //0x08
-    bit2mask_WREG(4); bitmask4 = WREG; //0x10
-    bit2mask_WREG(5); bitmask5 = WREG; //0x20
-    bit2mask_WREG(6); bitmask6 = WREG; //0x40
-    bit2mask_WREG(7); bitmask7 = WREG; //0x80
- }
- #undef debug
- #define debug()  bitmask_debug()
-#endif
-
-//#else
-//simpler logic, but vulnerable to code alignment:
-//this takes at least as long as alternate above
-//non_inline void bit2mask_WREG(void)
-//{
-//	volatile uint8 entnum @adrsof(LEAF_PROC);
-//	ONPAGE(PROTOCOL_PAGE); //put on same page as protocol handler to reduce page selects
-
-//return bit mask in WREG:
-//	INGOTOC(TRUE); //#warning "CAUTION: pclath<2:0> must be correct here"
-//	pcl += WREG & 7;
-//	PROGPAD(0); //jump table base address
-//	JMPTBL16(0) RETLW(0x80); //pin A4
-//	JMPTBL16(1) RETLW(0x40); //A2
-//	JMPTBL16(2) RETLW(0x20); //A1
-//	JMPTBL16(3) RETLW(0x10); //A0
-//	JMPTBL16(4) RETLW(0x08); //C3
-//	JMPTBL16(5) RETLW(0x04); //C2
-//	JMPTBL16(6) RETLW(0x02); //C1
-//	JMPTBL16(7) RETLW(0x01); //C0
-//	INGOTOC(FALSE); //check jump table doesn't span pages
-#if 0 //in-line minimum would still take 7 instr:
-	WREG = 0x01;
-	if (reg & 2) WREG = 0x04;
-	if (reg & 1) WREG += WREG;
-	if (reg & 4) swap(WREG);
-#endif
-//#ifdef PIC16X
-//	TRAMPOLINE(1); //kludge: compensate for address tracking bug
-//#endif
-//}
-//#endif
-
-
 #ifdef COMPILER_DEBUG //debug
  #ifndef debug
   #define debug() //define debug chain
@@ -787,6 +725,8 @@ INLINE VOID rl_nc(reg)  \\
  #define debug() device_debug()
 #endif
 
+
+#include "helpers.h"
 
 #endif //ndef _COMPILER_H
 //eof

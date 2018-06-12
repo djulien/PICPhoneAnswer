@@ -2,6 +2,7 @@
 //ASM-fixup script (C) 2010-2018 djulien
 
 //#define CLOCK_FREQ  (32 MHz) //max osc freq (with PLL); PIC will use int osc if ext clock is absent
+#define CLOCK_FREQ  (4 MHz) //1 MIPS
 //#define CLOCK_FREQ  18432000 //20 MHz is max ext clock freq for older PICs; comment this out to run at max int osc freq; PIC will use int osc if ext clock is absent
 //#define Timer0_range  (100 usec)
 //#define Timer1_halfRange  (50 msec/2) //kludge: BoostC gets /0 error with 50 msec (probably 16-bit arith overflow), so use a smaller value
@@ -20,6 +21,7 @@
 #define SERIAL_DEBUG
 #define TIMER1_DEBUG
 #define CLOCK_DEBUG
+#define LED_DEBUG
 
 
 //#include <xc.h> //automatically selects correct device header defs
@@ -41,6 +43,7 @@
 /// serial port
 //
 
+#if 0
 #if isPORTA(_SEROUT_PIN)
  #define _SEROUT_TRISA  PINOF(_SEROUT_PIN)
 #else
@@ -51,6 +54,7 @@
 #else
  #define _SEROUT_TRISBC  0
 #endif
+#endif
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -58,7 +62,10 @@
 /// led (test)
 //
 
-#define LED_PIN  RA5
+#define LED_PIN  RC2
+#define _LED_PIN  0xC2
+
+#if 0
 #define _LED_PIN  PORTPIN(_PORTA, bit2inx(_RA5))
 
 //set TRIS to handle output-only pins:
@@ -79,6 +86,7 @@
 
 
 volatile BANK0 uint8_t portbuf[2];
+#endif
 
 
 #if 0
@@ -97,14 +105,69 @@ volatile BANK0 uint8_t portbuf[2];
 #endif
 
 
+#define PORTAPIN(portpin)  IIFNZ(isPORTA(portpin), PINOF(portpin))
+#define PORTBPIN(portpin)  IIFNZ(isPORTB(portpin), PINOF(portpin))
+#define PORTCPIN(portpin)  IIFNZ(isPORTC(portpin), PINOF(portpin))
+#define PORTBCPIN(portpin)  IIFNZ(isPORTBC(portpin), PINOF(portpin))
+
+#define PORTAMASK(portpin)  IIFNZ(isPORTA(portpin), 1 << PINOF(portpin))
+#define PORTBMASK(portpin)  IIFNZ(isPORTB(portpin), 1 << PINOF(portpin))
+#define PORTCMASK(portpin)  IIFNZ(isPORTC(portpin), 1 << PINOF(portpin))
+#define PORTBCMASK(portpin)  IIFNZ(isPORTBC(portpin), 1 << PINOF(portpin))
+#define PORTMAP16(portpin)  ((PORTAMASK(portpin) << 8) | PORTBCMASK(portpin))
+
+#define _LED_MASK  PORTMAP16(_LED_PIN)
+//encode port A and port B/C into one 16-bit value:
+//port A in upper byte, port B/C in lower byte
+//#define ABC2bits16(Abits, BCbits)  ((Abits) << 8) | ((Bbits) & 0xff))
+//#define Abits(bits16)  ((bits16) >> 8)
+//#define BCbits(bits16)  ((bits16) & 0xff)
+
+#ifdef LED_DEBUG //debug
+ #ifndef debug
+  #define debug() //define debug chain
+ #endif
+//define globals to shorten symbol names (local vars use function name as prefix):
+    AT_NONBANKED(0) volatile uint16_t led_debug_val1;
+    AT_NONBANKED(0) volatile uint16_t led_debug_val2;
+    AT_NONBANKED(0) volatile uint16_t led_debug_val3;
+    AT_NONBANKED(0) volatile uint16_t led_debug_val4;
+    AT_NONBANKED(0) volatile uint16_t led_debug_val5;
+    AT_NONBANKED(0) volatile uint16_t led_debug_val6;
+//    AT_NONBANKED(0) volatile uint16_t zcpin_debug; //= _ZC_PIN;
+ INLINE void led_debug(void)
+ {
+    debug(); //incl prev debug info
+//use 16 bits to show port + pin:
+    led_debug_val1 = _LED_PIN;
+    led_debug_val2 = _LED_MASK;
+    led_debug_val3 = PORTAPIN(_LED_PIN);
+    led_debug_val4 = PORTBCPIN(_LED_PIN);
+    led_debug_val5 = PORTAMASK(_LED_PIN);
+    led_debug_val6 = PORTBCMASK(_LED_PIN);
+//    serin_debug = _SERIN_PIN;
+//    serout_debug = _SEROUT_PIN;
+//    zcpin_debug = _ZC_PIN;
+ }
+ #undef debug
+ #define debug() led_debug()
+#endif
+
+
 //;initialize front panel data:
 INLINE void led_init(void)
 {
 	init(); //prev init first
-	TRISA = PORTA_BITS & TRISA_INIT;
-	TRISBC = PORTBC_BITS & TRISBC_INIT;
-	PORTA = 0;
-	PORTBC = 0;
+//leave non-output pins as hi-Z:
+    TRISA = ~PORTAMASK(_LED_PIN); //| Abits(SEROUT)); //0b111111; //Abits(COL_PINS) | Abits(pin2bits16(SERIN);
+    TRISBC = ~PORTBCMASK(_LED_PIN); //(BCbits(ROW_PINS) | BCbits(SEROUT)); //0b100000; //BCbits(COL_PINS) | BCbits(pin2bits16(SERIN);
+    PORTA = PORTBC = 0;
+    WPUA = 0xff & ~0;
+    IFWPUBC(WPUBC = 0xff & ~0);
+//	TRISA = ~PORTA_BITS & TRISA_INIT;
+//	TRISBC = PORTBC_BITS & TRISBC_INIT;
+//	PORTA = 0;
+//	PORTBC = 0;
 }
 #undef init
 #define init()  led_init() //function chain in lieu of static init

@@ -64,6 +64,7 @@ function asm_cleanup()
     function keep(buf)
     {
         const WANT_PAGESEL = false; //don't need this if everything fits in one code page :)
+        const WANT_BANKSEL = false; //TODO: further optimization
         const neither = 2; //not true or false (tri-state)
 
         if (buf.match(/^\s*;/)) return false; //strip *lots of* comments
@@ -73,7 +74,7 @@ function asm_cleanup()
         if (buf.match(/\scode\s*$/i)) return false;
 
         if (buf.match(/\s+movwf\s+_wreg\s*(;|$)/i)) return neither; //TODO: check for a STATUS bit check following
-        if (buf.match(/\s+banksel\s+_wreg\s*(;|$)/i)) return neither; //TODO: check for a STATUS bit check following
+//        if (!WANT_BANKSEL && buf.match(/\s+banksel\s+_wreg\s*(;|$)/i)) return neither; //TODO: check for a STATUS bit check following
         if (!WANT_PAGESEL && buf.match(/\s+pagesel\s/i)) return neither; //not needed for single code page
         buf = buf.replace(/;id=\d+,.*$/i, ""); //TODO: is there useful info in here?
         this.push(buf + "\n"); //include newline to preserve line-based syntax
@@ -376,6 +377,7 @@ function asm_optimize()
 //TODO: drop jump to following; does this occur?
 //TODO: remove unreachable code
 //TODO: merge MOVLW and instr following that manip only WREG
+//TODO: reduce/remove RP0, RP1 (banksel) if caller wants only 1 - 2 banks
         });
 //do another pass in case we can do more:
 //this catches _sdcc_gsinit_startup (requires call/return reduction first)

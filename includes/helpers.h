@@ -110,6 +110,11 @@
 //#define MAX(x, y)  ((x) + IIF0((y) > (x), (y) - (x), 0)) //;uses IIF0 to try to avoid macro body length problems
 
 
+/////////////////////////////////////////////////////////////////////////////////
+////
+/// Bit manipulation helpers:
+//
+
 //convert bit mask to bit#:
 //use token-pasting to reduce macro body size after expansion (needed for MPASM usage)
 //CAUTION: sensitive to value format; must match exactly
@@ -157,6 +162,122 @@
 	((val) >= 0x0200) + \
 	((val) >= 0x0100) + \
 NumBits8(val))
+
+
+//convert bit# to pin mask:
+//takes 7 instr always, compared to a variable shift which would take 2 * #shift positions == 2 - 14 instr (not counting conditional branching)
+//#if 1
+#define bit2mask_WREG(bitnum)  \
+{ \
+	WREG = 0x01; \
+	if (bitnum & 0b010) WREG = 0x04; \
+	if (bitnum & 0b001) WREG += WREG; \
+	if (bitnum & 0b100) swap(WREG); \
+}
+
+#ifdef COMPILER_DEBUG //debug
+ #ifndef debug
+  #define debug() //define debug chain
+ #endif
+//define globals to shorten symbol names (local vars use function name as prefix):
+    volatile AT_NONBANKED(0) uint8_t bitmask0, bitmask1, bitmask2, bitmask3, bitmask4, bitmask5, bitmask6, bitmask7;
+ INLINE void bitmask_debug(void)
+ {
+    debug(); //incl prev debug info
+    bit2mask_WREG(0); bitmask0 = WREG; //should be 0x01
+    bit2mask_WREG(1); bitmask1 = WREG; //0x02
+    bit2mask_WREG(2); bitmask2 = WREG; //0x04
+    bit2mask_WREG(3); bitmask3 = WREG; //0x08
+    bit2mask_WREG(4); bitmask4 = WREG; //0x10
+    bit2mask_WREG(5); bitmask5 = WREG; //0x20
+    bit2mask_WREG(6); bitmask6 = WREG; //0x40
+    bit2mask_WREG(7); bitmask7 = WREG; //0x80
+ }
+ #undef debug
+ #define debug()  bitmask_debug()
+#endif
+
+//#else
+//simpler logic, but vulnerable to code alignment:
+//this takes at least as long as alternate above
+//non_inline void bit2mask_WREG(void)
+//{
+//	volatile uint8 entnum @adrsof(LEAF_PROC);
+//	ONPAGE(PROTOCOL_PAGE); //put on same page as protocol handler to reduce page selects
+
+//return bit mask in WREG:
+//	INGOTOC(TRUE); //#warning "CAUTION: pclath<2:0> must be correct here"
+//	pcl += WREG & 7;
+//	PROGPAD(0); //jump table base address
+//	JMPTBL16(0) RETLW(0x80); //pin A4
+//	JMPTBL16(1) RETLW(0x40); //A2
+//	JMPTBL16(2) RETLW(0x20); //A1
+//	JMPTBL16(3) RETLW(0x10); //A0
+//	JMPTBL16(4) RETLW(0x08); //C3
+//	JMPTBL16(5) RETLW(0x04); //C2
+//	JMPTBL16(6) RETLW(0x02); //C1
+//	JMPTBL16(7) RETLW(0x01); //C0
+//	INGOTOC(FALSE); //check jump table doesn't span pages
+#if 0 //in-line minimum would still take 7 instr:
+	WREG = 0x01;
+	if (reg & 2) WREG = 0x04;
+	if (reg & 1) WREG += WREG;
+	if (reg & 4) swap(WREG);
+#endif
+//#ifdef PIC16X
+//	TRAMPOLINE(1); //kludge: compensate for address tracking bug
+//#endif
+//}
+//#endif
+
+
+/////////////////////////////////////////////////////////////////////////////////
+////
+/// Helpers for generic Port/Pin handling:
+//
+
+//;Helpers to allow more generic port and I/O pin handling.
+//include port# with pin# for more generic code:
+//;port/pin definitions:
+//;These macros allow I/O pins to be refered to using 2 hex digits.
+//;First digit = port#, second digit = pin#.  For example, 0xB3 = Port B, pin 3 (ie, RB3).
+//;For example, 0xA0 = Port A pin 0, 0xC7 = Port C pin 7, etc.
+//#define PORTOF(portpin)  nibbleof(portpin, 1)
+#define PORTOF(portpin)  ((portpin) & 0xF0)
+//#define PINOF(portpin)  nibbleof(portpin, 0)
+#define PINOF(portpin)  ((portpin) & 0x0F)
+//too complex:#define PORTPIN(port, pin)  (IIF((port) & 0xF, (port) << 4, port) | ((pin) & 0xF)) //allow port# in either nibble
+#define PORTPIN(port, pin)  (PORTOF(((port) << 4) | (port)) | PINOF(pin)) //allow port# in either nibble
+
+
+#ifdef _PORTA
+ #define isPORTA(portpin)  (PORTOF(portpin) == _PORTA)
+#else
+ #define isPORTA(ignored)  FALSE
+#endif
+#ifdef _PORTB
+ #define isPORTB(portpin)  (PORTOF(portpin) == _PORTB)
+#else
+ #define isPORTB(ignored)  FALSE
+#endif
+#ifdef _PORTC
+ #define isPORTC(portpin)  (PORTOF(portpin) == _PORTC)
+#else
+ #define isPORTC(ignored)  FALSE
+#endif
+
+#define PORTAPIN(portpin)  IIFNZ(isPORTA(portpin), PINOF(portpin))
+#define PORTBPIN(portpin)  IIFNZ(isPORTB(portpin), PINOF(portpin))
+#define PORTCPIN(portpin)  IIFNZ(isPORTC(portpin), PINOF(portpin))
+#define PORTBCPIN(portpin)  IIFNZ(isPORTBC(portpin), PINOF(portpin))
+
+//encode port A and port B/C into one 16-bit value:
+//port A in upper byte, port B/C in lower byte
+#define ABC2bits16(Abits, BCbits)  ((Abits) << 8) | ((Bbits) & 0xff))
+#define Abits(bits16)  ((bits16) >> 8)
+#define BCbits(bits16)  ((bits16) & 0xff)
+
+#define pin2bits16(pin)  ABC2bits(IIFNZ(isPORTA(pin), 1 << PINOF(pin)), IIFNZ(isPORTBC(pin), 1 << PINOF(pin)))
 
 
 #endif //ndef _HELPERS_H

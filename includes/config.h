@@ -10,7 +10,7 @@
 #include "compiler.h"
 #include "clock.h" //sets UseIntOsc based on device type and target frequency
 
-#if !defined(_CONFIG1) && defined(_CONFIG)
+#ifndef _CONFIG1 //!defined(_CONFIG1) && defined(_CONFIG)
  #define _CONFIG1  _CONFIG
 #endif
 
@@ -29,23 +29,46 @@
 #endif
 
  
-#if 0
-//naming conventions:
-#if !defined(_WDT_OFF) && defined(_WDTE_OFF)
- #define _WDT_OFF  _WDTE_OFF
+//#if 0
+//inconsistent naming conventions :()
+//#ifndef _WDT_OFF //!defined(_WDT_OFF) && defined(_WDTE_OFF)
+// #define _WDT_OFF  _WDTE_OFF // WDT disabled
+// #define _WDT_ON  _WDTE_ON // WDT enabled
+//#endif
+//#ifndef _BORV_25 //!defined(_BORV_25) && defined(_BORV_HI)
+// #define _BORV_25  _BORV_HI
+//#endif
+//#ifndef _BOD_OFF //!defined(_BOD_OFF) && defined(_BOREN_OFF)
+// #define _BOD_OFF  _BOREN_OFF // Brown-out Reset disabled
+// #define _BOD_ON  _BOREN_ON // Brown-out Reset enabled
+//#endif
+//#ifndef _INTRC_OSC_NOCLKOUT //!defined(_INTRC_OSC_NOCLKOUT) && defined(_CLKOUTEN_OFF)
+// #define _INTRC_OSC_NOCLKOUT  _CLKOUTEN_OFF
+// #define _INTRC_OSC_NOCLKOUT  (_FOSC_INTOSC & _CLKOUTEN_OFF) // INTOSC oscillator: I/O function on CLKIN pin; CLKOUT function is disabled. I/O or oscillator function on the CLKOUT pin
+//#endif
+//#define _FOSC_INTOSC            0x3FFC  // INTOSC oscillator: I/O function on CLKIN pin.
+//#ifndef _EC_OSC //!defined(_EC_OSC) && defined(_FOSC_ECH)
+// #define _EC_OSC  _FOSC_ECH // ECH, External Clock, High Power Mode (4-32 MHz): device clock supplied to CLKIN pin
+//#endif
+//#endif
+//_IESO_OFF //0x2fff /*;internal/external switchover not needed; turn on to use optional external clock?  disabled when EC mode is on (page 31); TODO: turn on for battery-backup or RTC*/
+//_BOREN_OFF  0x39ff /*;brown-out disabled; TODO: turn this on when battery-backup clock is implemented?*/
+//_CPD_OFF  0x3fff /*;data memory (EEPROM) NOT protected; TODO: CPD on or off? (EEPROM cleared)*/
+//_CP_OFF  0x3fff /*;program code memory NOT protected (maybe it should be?)*/
+//_MCLRE_OFF  0x3fbf /*;use MCLR pin as INPUT pin (required for AC line sync with Renard); no external reset needed anyway*/
+//_PWRTE_ON  0x3df /*;hold PIC in reset for 64 msec after power up until signals stabilize; seems like a good idea since MCLR is not used*/
+//_WDTE_OFF/*ON*/  0x3fe7  /*;use WDT to restart if software crashes (paranoid); WDT has 8-bit pre- (shared) and 16-bit post-scalars (page 125)*/
+//_FOSC_INTOSC  0x3ffc
+//_FOSC_ECH  0x3fff  /*;I/O on RA4, CLKIN on RA5; external clock (18.432 MHz); if not present, int osc will be used*/
+//_FCMEN_OFF  0x1fff
+//_FCMEN_ON  0x3fff  /*;turn on fail-safe clock monitor in case external clock is not connected or fails (page 33); RA5 will still be configured as clock input though (not available for I/O)*/
+
+#ifndef _FOSC_INTOSC
+ #define _FOSC_INTOSC  _FOSC_INTOSCIO //INTOSCIO oscillator: I/O function on RA4/OSC2/CLKOUT pin, I/O function on RA5/OSC1/CLKIN.
 #endif
-#if !defined(_BORV_25) && defined(_BORV_HI)
- #define _BORV_25  _BORV_HI
-#endif
-#if !defined(_BOD_OFF) && defined(_BOREN_OFF)
- #define _BOD_OFF  _BOREN_OFF
-#endif
-#if !defined(_INTRC_OSC_NOCLKOUT) && defined(_CLKOUTEN_OFF)
- #define _INTRC_OSC_NOCLKOUT  _CLKOUTEN_OFF
-#endif
-#if !defined(_EC_OSC) && defined(_FOSC_ECH)
- #define _EC_OSC  _FOSC_ECH
-#endif
+
+#ifndef _FOSC_ECH
+ #define _FOSC_ECH  _FOSC_EC // EC: I/O function on RA4/OSC2/CLKOUT pin, CLKIN on RA5/OSC1/CLKIN.
 #endif
 
 

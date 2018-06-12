@@ -31,14 +31,14 @@
 //TODO: define max ext clock freq?
 #ifdef PIC16X //extended instr set (faster PICs)
 // #warning "PIC16X max int clock is 32 MHz (using 4x PLL)"
- #define MAX_INTOSC_FREQ  (32 MHz) //uses 4x PLL
- #define DEF_INTOSC_FREQ  (1 MHz)
+ #define MAX_INTOSC_FREQ  (32 MHz) //uses 4x PLL; 8 MIPS
+ #define DEF_INTOSC_FREQ  (500 KHz) //CAUTION: MF, not HF!
  #define IntOsc_PrescalarOffset  (8-1) //kludge: 2 values for LFINTOSC; skip 1
  #define IntOsc_MaxPrescalar  15
 #else
 // #warning "PIC16 (non-extended) max int clock is 8 MHz"
- #define MAX_INTOSC_FREQ  (8 MHz)
- #define DEF_INTOSC_FREQ  (1 MHz)
+ #define MAX_INTOSC_FREQ  (8 MHz) //2 MIPS
+ #define DEF_INTOSC_FREQ  (4 MHz) //1 MIPS
  #define IntOsc_PrescalarOffset  0
  #define IntOsc_MaxPrescalar  7
  #define PLL  1 //no PLL available
@@ -54,6 +54,8 @@
 // #if (INT_OSC_FREQ != 8 MHz)
 // #define CLOCK_FREQ  INT_OSC_FREQ
  #define UseIntOsc  TRUE
+#elif defined(PIC16X)
+ #error RED_MSG "[ERROR] No clock freq specified" //default is MF, not HF; force caller to explicitly choose
 #else //use default (internal) osc freq
  #define CLOCK_FREQ  DEF_INTOSC_FREQ
  #define UseIntOsc  TRUE
@@ -239,8 +241,8 @@
  INLINE void clock_debug(void)
  {
     debug(); //incl prev debug
-    clock_freq_debug = CLOCK_FREQ; //32 MHz == 0x1e8,4800
-    max_intosc_debug = MAX_INTOSC_FREQ; //8 MHz == 0x7a,1200, 32 MHz == 0x1e8,4800
+    clock_freq_debug = CLOCK_FREQ; //32 MHz == 0x1e8,4800, 4 MHz == 0x3d,0900, 1 MHz == 0xf,4240
+    max_intosc_debug = MAX_INTOSC_FREQ; //8 MHz (no PLL) == 0x7a,1200, 32 MHz (4x PLL) == 0x1e8,4800
     intosc_prescalar_debug = IntOsc_Prescalar(CLOCK_FREQ); //should be 15 for 32 MHz PIC16X, 7 for 8 MHz PIC16
     use_intosc_debug = UseIntOsc;
     pll_debug = PLL; //should be 4 if PLL used, 1 otherwise

@@ -127,7 +127,7 @@
  {
     debug(); //incl prev debug first
 //tmr1_ticks_test2_debug = Instr2uSec(8 * Timer1_Prescalar, CLOCK_FREQ); //max duration for Timer 1; avoid arith overflow error in BoostC by dividing by 2
-    t1con_debug = MY_T1CON(CLOCK_FREQ / PLL); //should be 0x31 with 8:1 prescalar and timer enabled
+    t1con_debug = MY_T1CON(CLOCK_FREQ / PLL); //should be 0x31 with 8:1 prescalar and timer enabled, 0x01 with 1:1 prescalar
     tmr1_preset_debug = U16FIXUP(TMR1_PRESET_50msec); //should be ~ 65536 - 50000 == 0x3cb0 with 8:1 pre @ 8 MIPS
     tmr1_50msec_debug = 50 msec; //50,000 == 0xc350
     tmr1_presbits_debug = NumBits8(Timer1_Prescalar); //should be 4 (for prescalar 8)
