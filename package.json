@@ -1,0 +1,19 @@
+{
+  "name": "ssr-ws281x-firmware",
+  "version": "0.17.12",
+  "description": "WS281X-to-SSR firmware",
+  "main": "index.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "TBD",
+  "dependencies": {
+    "byline": "^5.0.0",
+    "colors": "git+https://github.com/djulien/colors.js.git",
+    "through2": "^2.0.3"
+  }
+}

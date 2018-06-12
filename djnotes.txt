@@ -1,0 +1,39 @@
+PIC compilers for Ubuntu:
+http://www.theengineeringprojects.com/2016/02/pic-c-compiler.html
+https://electronics.stackexchange.com/questions/18821/compiler-assembler-toolchain-for-pic-micros-using-ubuntu-11-04
+
+MPLAB-X (Java):
+http://ww1.microchip.com/downloads/mplab/X_Beta/installer.html
+
+SDCC:
+https://hackaday.com/2010/11/03/how-to-program-pics-using-linux/
+http://sdcc.sourceforge.net/
+"apt-cache policy sdcc" shows 3.5.0 as of 7/29/17
+6/12/16 = 3.6.0
+6/24/15 = 3.5.0
+
+download source:
+https://sourceforge.net/projects/sdcc/files/
+bin:
+https://sourceforge.net/projects/sdcc/files/sdcc-linux-x86/3.6.0/sdcc-3.6.0-i386-unknown-linux2.5.tar.bz2/download
+  unpack; cd
+  (INSTALL.txt)
+  sudo  cp -r * /usr/local
+  sdcc -v
+  sdcc --print-search-dirs
+BROKEN: src:
+https://sourceforge.net/projects/sdcc/files/sdcc/3.6.0/sdcc-src-3.6.0.tar.bz2/download
+  cd *src
+  sudo apt-get install bison flex libboost-dev gputils
+  ./configure
+  make
+  sudo make install
+sdcc/src/sdcc-code/sdcc/device/non-free/include/pic14/p‌​ic16f887.h
+
+MPLAB:
+http%3A%2F%2Fwww.microchip.com%2F&title=Top%203%20PIC%20C%20Compiler%20-%20The%20Engineering%20Projects&txt=official%20site
+
+other:
+GPASM
+Anjuta (IDE)
+
