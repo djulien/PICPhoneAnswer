@@ -159,8 +159,8 @@ INLINE void led_init(void)
 {
 	init(); //prev init first
 //leave non-output pins as hi-Z:
-    TRISA = ~PORTAMASK(_LED_PIN); //| Abits(SEROUT)); //0b111111; //Abits(COL_PINS) | Abits(pin2bits16(SERIN);
-    TRISBC = ~PORTBCMASK(_LED_PIN); //(BCbits(ROW_PINS) | BCbits(SEROUT)); //0b100000; //BCbits(COL_PINS) | BCbits(pin2bits16(SERIN);
+    TRISA = 0xff & ~PORTAMASK(_LED_PIN); //| Abits(SEROUT)); //0b111111; //Abits(COL_PINS) | Abits(pin2bits16(SERIN);
+    TRISBC = 0xff & ~PORTBCMASK(_LED_PIN); //(BCbits(ROW_PINS) | BCbits(SEROUT)); //0b100000; //BCbits(COL_PINS) | BCbits(pin2bits16(SERIN);
     PORTA = PORTBC = 0;
     WPUA = 0xff & ~0;
     IFWPUBC(WPUBC = 0xff & ~0);

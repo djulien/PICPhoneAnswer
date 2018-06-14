@@ -6,8 +6,11 @@
 #ifndef _TIMER0_H
 #define _TIMER0_H
 
-#include "zc.h"
-#include "timer_1sec.h"
+#include "compiler.h" //device registers
+#include "helpers.h" //RED_MSG, NumBits8(), TOSTR()
+#include "clock.h" //TimerPreset()
+#include "zc.h" //zc_* vars; TODO: relax this dependency
+//#include "timer_1sec.h"
 
 
 #ifndef Timer0_range

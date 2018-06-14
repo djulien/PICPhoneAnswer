@@ -6,7 +6,11 @@
 #ifndef _TIMER_1SEC_H
 #define _TIMER_1SEC_H
 
-#include "timer_50msec.h"
+#include "compiler.h" //device registers
+#include "helpers.h" //U16FIXUP(), RED_MSG, TOSTR()
+//#include "clock.h" //Instr2uSec()
+#include "timer_50msec.h" //NOTE: 1 sec timer depends on 50 msec timer (Timer 1)
+
 
 //#warning CYAN_MSG "TODO: find why this is 192 instead of 20"
 #define TMR1_LOOP_1sec  (ONE_SEC / U16FIXUP(50 msec)) //#Timer 1 ticks per second

@@ -6,6 +6,11 @@
 #ifndef _TIMER1_H
 #define _TIMER1_H
 
+#include "compiler.h" //device registers
+#include "helpers.h" //U16FIXUP(), RED_MSG, IIF(), NumBits(), TOSTR()
+#include "clock.h" //Instr2uSec()
+
+
 #ifndef Timer1_Range
  #define Timer1_Range  (50 msec)
 #endif

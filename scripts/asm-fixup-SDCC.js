@@ -23,13 +23,13 @@ const {LineStream} = require('byline');
 
 
 var [instm, outstm] = [process.stdin, process.stdout];
-if (instm.isTTY) instm = fs.createReadStream("build/ssr-ws281x.asm");
+//if (instm.isTTY) instm = fs.createReadStream("build/ssr-ws281x.asm");
 //fs.createReadStream(process.argv[2] || "(no file)")
 instm
     .pipe(new LineStream()) //{keepEmptyLines: false}))
     .pipe(asm_cleanup())
     .pipe(asm_optimize())
-    .pipe(text_cleanup())
+//    .pipe(text_cleanup())
     .pipe(outstm);
 
 
@@ -66,7 +66,10 @@ function asm_cleanup()
         const WANT_PAGESEL = false; //don't need this if everything fits in one code page :)
         const WANT_BANKSEL = false; //TODO: further optimization
         const neither = 2; //not true or false (tri-state)
+        var parts;
 
+//;; BANKOPT2 BANKSEL dropped; _labdcl present in same bank as _labdcl
+        if (parts = buf.match(/^;; BANKOPT2 BANKSEL dropped; ([a-z0-9_]+) present in same bank/i)) { this.push(`\tBANKSEL ${parts[1]} ;;U4 ${buf.slice(2)}`); return true; } //kludge: undo sdcc bug; TODO: submit sdcc bug report (non-banked regs treated as banked, then subsequent bank checks are wrong)
         if (buf.match(/^\s*;/)) return false; //strip *lots of* comments
         if (buf.match(/^\s+extern\s/i)) return false;
         if (buf.match(/^\s+global\s/i)) return false;

@@ -37,3 +37,29 @@ other:
 GPASM
 Anjuta (IDE)
 
+DTMF tones/freq:
+https://www.mediacollege.com/audio/tone/dtmf.html
+
+pre-rec alpha num mp3:
+http://www.theblog.ca/mp3-audio-files-alphabet
+
+DFPlayer tutorial:
+https://www.dfrobot.com/blog-277.html
+*Important note for audio files. Careful read notes below will save you a lot of precious time!
+- DFPlayer Mini read both MP3 and WAV files.
+- All audio files must be placed under /mp3 folder.
+- Audio file must be named 0001.mp3, 0002.mp3.....0255.mp3 (4 letters not 2 or 3 letters)
+- Audio file names can have any characters after 4 digits, such as 0001_Bruno_Mars_Count_On Me.mp3 
+- Tested few under 1 second WAV files and they did not work
+- If one of the audio file is removed from SD cared, DFPlayer still can find it and play it! Weird! In the end, I formatted the SD card to make DFPlayer to play the music I specified.
+- Delay(seconds); You have to specify number of seconds delay for the audio file to play completely or the next audio file might be started before current audio is over!
+- mp3_play (74); means play audio file 0074.mp3
+other sample code:
+https://www.dfrobot.com/wiki/index.php/DFPlayer_Mini_SKU:DFR0299
+
+elctromechanical puzzle box:
+https://www.youtube.com/watch?v=6HKQTuVD2ac
+(fader motors)
+
+puzzle box:
+https://www.youtube.com/watch?v=ibUV-bxcCZA
