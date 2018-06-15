@@ -53,8 +53,9 @@ rem pushd %CWD%..
 rem wineconsole cmd
 cd /d %CWD%..
 rem dir %SOURCE%
-@echo Y | del build\*.*
-@echo " "
+rem @echo Y | del build\*.*
+rem @echo " "
+@echo Y | move build\%BASENAME%.asm  build\%BASENAME%-old.asm
 rem move  build\%BASENAME%.asm  build\%BASENAME%-ugly.asm 
 rem
 rem need dummy file to satisfy MPLAB; create one in case sdcc fails:

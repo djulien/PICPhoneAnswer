@@ -155,15 +155,21 @@ volatile BANK0 uint8_t portbuf[2];
 
 
 //;initialize front panel data:
+//grouped to reduce bank selects
 INLINE void led_init(void)
 {
-	init(); //prev init first
+	init(); //prev init first; NOTE: no race condition with cooperative event handling (no interrupts)
+//enable digital I/O, disable analog functions:
+	IFANSELA(ANSELA = 0); //must turn off analog functions for digital I/O
+	IFANSELBC(ANSELBC = 0);
+//weak pull-ups for input pins are not floating:
+    WPUA = 0xff & ~0;
+    IFWPUBC(WPUBC = 0xff & ~0);
 //leave non-output pins as hi-Z:
     TRISA = 0xff & ~PORTAMASK(_LED_PIN); //| Abits(SEROUT)); //0b111111; //Abits(COL_PINS) | Abits(pin2bits16(SERIN);
     TRISBC = 0xff & ~PORTBCMASK(_LED_PIN); //(BCbits(ROW_PINS) | BCbits(SEROUT)); //0b100000; //BCbits(COL_PINS) | BCbits(pin2bits16(SERIN);
     PORTA = PORTBC = 0;
-    WPUA = 0xff & ~0;
-    IFWPUBC(WPUBC = 0xff & ~0);
+    IFCM1CON0(CM1CON0 = ~0); //;configure comparator inputs as digital I/O (no comparators); overrides TRISC (page 63, 44, 122); must be OFF for digital I/O to work! needed for PIC16F688; redundant with POR value for PIC16F182X
 //	TRISA = ~PORTA_BITS & TRISA_INIT;
 //	TRISBC = PORTBC_BITS & TRISBC_INIT;
 //	PORTA = 0;

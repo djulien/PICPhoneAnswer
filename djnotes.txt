@@ -33,6 +33,23 @@ sdcc/src/sdcc-code/sdcc/device/non-free/include/pic14/p‌​ic16f887.h
 MPLAB:
 http%3A%2F%2Fwww.microchip.com%2F&title=Top%203%20PIC%20C%20Compiler%20-%20The%20Engineering%20Projects&txt=official%20site
 
+PIC pgming on Linux:
+https://www.digitalpeer.com/blog/programming-a-pic-on-linux-tutorial
+git clone https://github.com/psmay/pk2cmd.git
+
+http://curuxa.org/en/Program_PICs_with_a_PICkit2_using_the_command_line_on_Linux
+pk2cmd -B/usr/share/pk2/ -PPIC16F688 -Fbuild/EscapePhone.HEX -M
+pk2cmd -S
+connect, detect: pk2cmd -P
+run code:  pk2cmd -PPIC16F88 [-A4] -T 
+cut power:  pk2cmd -PPIC16F88 -A0
+pgm:  pk2cmd -PPIC16F88 -M [-E] -Ffile.hex                 E=erase     M=pgm  Y=verify
+verify: pk2cmd -B/usr/share/pk2/ -PPIC16F688 -Y -Ffile.hex
+list devices: pk2cmd -B/usr/share/pk2/ -?P
+stop/reset: pk2cmd -PPIC16F688 -R
+auto-detect:  pk2cmd -p -i
+version: pk2cmd -?v
+
 other:
 GPASM
 Anjuta (IDE)

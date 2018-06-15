@@ -280,6 +280,9 @@ volatile AT_NONBANKED(0) DummyBits_t dummy_bits;
  #ifdef ANSELB_ADDR
   #define ANSELBC  ANSELB
   #define ANSELBC_ADDR  ANSELB_ADDR
+  #define IFANSELBC(stmt)  stmt
+ #else
+  #define IFANSELBC(ignored)  //nop
  #endif
  #define IFPORTBC(stmt)  stmt
  #define IFPORTB(stmt)  stmt
@@ -310,6 +313,9 @@ volatile AT_NONBANKED(0) DummyBits_t dummy_bits;
  #ifdef ANSELC_ADDR
   #define ANSELBC  ANSELC
   #define ANSELBC_ADDR  ANSELC_ADDR
+  #define IFANSELBC(stmt)  stmt
+ #else
+  #define IFANSELBC(ignored)  //nop
  #endif
  #define IFPORTBC(stmt)  stmt
  #define IFPORTC(stmt)  stmt
@@ -320,9 +326,10 @@ volatile AT_NONBANKED(0) DummyBits_t dummy_bits;
  #define PORTBC_BITS  PORTC_BITS
 #else
  #warning YELLOW_MSG "[INFO] No Port B/C?"
- #define IFPORTBC(stmt)  //nop
  #define IFPORTB(stmt)  //nop
  #define IFPORTC(stmt)  //nop
+ #define IFPORTBC(stmt)  //nop
+ #define IFANSELBC(ignored)  //nop
 #endif
 
 //all devices have PORTA?
@@ -338,12 +345,16 @@ volatile AT_NONBANKED(0) DummyBits_t dummy_bits;
  #if !defined(ANSELA_ADDR) && defined(ANSEL_ADDR) //create aliases
   #define ANSELA  ANSEL
   #define ANSELA_ADDR  ANSEA_ADDR
+  #define IFANSELA(stmt)  stmt
+ #else
+  #define IFANSELA(ignored)  //nop
  #endif
  #define IFPORTA(stmt)  stmt
  #define _PORTA  0xA0
 #else
  #error RED_MSG "[ERROR] No Port A?"
  #define IFPORTA(stmt)  //nop
+ #define IFANSELA(ignored)  //nop
 #endif
 
 
@@ -379,25 +390,35 @@ volatile AT_NONBANKED(0) DummyBits_t dummy_bits;
  #define APFCON0_ADDR  APFCON_ADDR
 #endif
 
-#ifndef CFGS
- #define CFGS  0 //no explicit User ID/Device ID space defined
-#endif
-
 #ifndef OSCSTAT_ADDR
  #define OSCSTAT  OSCCON
  #define OSCSTAT_ADDR  OSCCON_ADDR
 #endif
 
-#ifndef EEADRL //defined(EEADR) && !defined(EEADRL)
+#ifndef EEADRL_ADDR //defined(EEADR) && !defined(EEADRL)
  #define EEADRL  EEADR
  #define EEADRL_ADDR  EEADR_ADDR
 #endif
 
-#ifndef EEDATL //defined(EEDATA) && !defined(EEDATL)
+#ifndef EEDATL_ADDR //defined(EEDATA) && !defined(EEDATL)
  #define EEDATL  EEDATA
  #define EEDATL_ADDR  EEDATA_ADDR
 #endif
 
+#if !defined(CM1CON0_ADDR) && defined(CMCON0_ADDR) //= ~0; //;configure comparator inputs as digital I/O (no comparators); overrides TRISC (page 63, 44, 122); must be OFF for digital I/O to work! (for PIC16F688)
+ #define CM1CON0  CMCON0
+ #define CM1CON0_ADDR  CMCON0_ADDR
+#endif
+#ifdef CM1CON0_ADDR
+ #define IFCM1CON0(stmt)  stmt
+#else
+ #define IFCM1CON0(stmt)  //nop
+#endif
+
+
+#ifndef CFGS
+ #define CFGS  0 //no explicit User ID/Device ID space defined
+#endif
 
 #define BITADDR(adrs)  (adrs)/8.(adrs)%8 //for use with @ on bit vars
  

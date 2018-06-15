@@ -57,7 +57,8 @@ function asm_cleanup()
     function flush(cb)
     {
         var total = (this.kept || 0) + (this.reduced || 0);
-        this.push(`;pass 1: #lines ${this.numlines || 0}, #kept ${this.kept || 0} (${percent(this.kept, total)}%), #reduced ${this.reduced || 0} (${percent(this.reduced, total)}%)\n`);
+        this.push(`;fixup stats ${new Date().toLocaleString()}\n`);
+        this.push(`;pass 1: #lines ${this.numlines || 0}, #kept ${this.kept || 0} (${percent(this.kept, total)}%), #reduced ${this.reduced || 0} (${percent(this.reduced, total)}%), banksel keep ${this.banksel_keep || 0}, toss ${this.banksel_toss || 0}\n`);
         cb();
     }
 
@@ -68,8 +69,11 @@ function asm_cleanup()
         const neither = 2; //not true or false (tri-state)
         var parts;
 
-//;; BANKOPT2 BANKSEL dropped; _labdcl present in same bank as _labdcl
-        if (parts = buf.match(/^;; BANKOPT2 BANKSEL dropped; ([a-z0-9_]+) present in same bank/i)) { this.push(`\tBANKSEL ${parts[1]} ;;U4 ${buf.slice(2)}`); return true; } //kludge: undo sdcc bug; TODO: submit sdcc bug report (non-banked regs treated as banked, then subsequent bank checks are wrong)
+//;; BANKOPT2 BANKSEL dropped; xyz present in same bank as abc
+//recover all BANKSEL here and decide in next pass whether they are needed
+        if (parts = buf.match(/^;; BANKOPT2 BANKSEL dropped; ([a-z0-9_]+) present in same bank as ([a-z0-9_]+)\s*$/i)) // (.*)$/i))
+            if (parts[1] == parts[2]) { if (isNaN(++this.banksel_toss)) this.banksel_toss = 1; return true; } //false; }
+            else { if (isNaN(++this.banksel_keep)) this.banksel_keep = 1; this.push(`\tBANKSEL ${parts[1]} ;;UU !bank of ${parts[2]} ${buf.slice(2)}\n`); return true; } //kludge: undo sdcc bug; TODO: submit sdcc bug report (non-banked regs treated as banked, then subsequent bank checks are wrong)
         if (buf.match(/^\s*;/)) return false; //strip *lots of* comments
         if (buf.match(/^\s+extern\s/i)) return false;
         if (buf.match(/^\s+global\s/i)) return false;
@@ -144,14 +148,23 @@ function asm_optimize()
         var symtab = {}, labels = {};
         symtab.bankof = function(varname, where)
         {
-              if (!(varname in this)) console.error(`Undefined var: '${varname}' at line ${where}`.red_lt);
-              var adrs7 = this[varname] & 0x7F;
-              return (adrs7 >= 0x0c) && (adrs7 < 0x70)? this[varname] & ~0x7F: -1;
+            const NonBankedFSR =
+            {
+                _INDF: true, _PCL: true, _STATUS: true, _FSR: true, _PCLATH: true, _INTCON: true, //16F688 unbank regs < 0x0C
+                _STATUSbits: true, _INTCONbits: true, //sdcc uses alternate names for bitized vars
+                _INDF0: true, _INDF1: true, _FSR0L: true, _FSR0H: true, _FSR1L: true, _FSR1H: true, _BSR: true, _WREG: true, //16F182x all are unbanked < 0x0C
+            };
+            if (!(varname in this)) console.error(`Undefined var: '${varname}' at line ${where}`.red_lt);
+            var adrs7 = this[varname] & 0x7F;
+//CAUTION: 16F688 has *some* banked regs < 0x0C; 16F182x has all non-banked regs < 0x0C
+            if (NonBankedFSR[varname]) adrs7 = 0xff; //kludge: treat as non-banked
+            return (/*(adrs7 >= 0x0c) &&*/ (adrs7 < 0x70))? this[varname] & ~0x7F: -1;
         }
 //initial pass to discover jump targets (labels):
         lines.forEach((line, inx, all) =>
         {
             var parts;
+//            line = line.replace(/;.*$/, ""); //remove comments to prevent spurious pattern matches
 //label states:
 // < 0 == defined (location), not used
 // = 0 == used, unknown location
@@ -169,7 +182,7 @@ function asm_optimize()
                 if (labels[name].definition) console.error(`Duplicate label; '${name} at line ${inx + 1}'`.red_lt);
                 else labels[name].definition = inx; //can't be 0
             }
-            if (parts = line.match(/\s(callw?|goto|braw?)\s+([a-z0-9_]+)(\s|;|$)/i)) //usage
+            if (parts = line.match(/^\s(callw?|goto|braw?)\s+([a-z0-9_]+)(\s|;|$)/i)) //usage
             {
                 var name = parts[2];
 //                if (labels[name] < 0) labels[name] = -labels[name]; //mark it used (known location)
@@ -219,6 +232,11 @@ function asm_optimize()
             {
                 symtab[parts[1]] = Math.abs(varadrs);
                 all[inx] = `${parts[1]}\tequ 0x${Math.abs(varadrs).toString(16)} ;;S3 ` + all[inx]; //assign adrs to symbol; NOTE: could be multiple; don't change "line"
+                if (parts[1].match(/^_wreg$/i) && (Math.abs(varadrs) >= 0x70)) //fake ref def for older PICs; remove
+                {
+                    all.comment(inx, "U5"); //leave undefined to catch optimization errors
+                    return; //don't alloc "res" space for unneeded vars
+                }
                 if (parts[1].match(/^(_indf\d_(preinc|predec|postinc|postdec)|_labdcl|_swopcode|[psw]save|stk\d+|r0x\d+)$/i))
                 {
                     all.comment(inx, "U2"); //leave undefined to catch optimization errors
@@ -244,10 +262,10 @@ function asm_optimize()
                 return;
             }
 //remove labdcls (only used for code gen debug):
-            if (line.match(/(^|\s)_labdcl(\s|$)/i)) //do this before storage allocation
+            if (line.match(/^[^;]*\s+_labdcl(\s|$)/i)) //do this before storage allocation
             {
 //if (isNaN(++reduce.count)) reduce.count = 1;
-                if (all.lookback(/\s+movlw\s/i, inx, true)) all.comment(all.backinx, "D1");
+                if (all.lookback(/^\s+movlw\s/i, inx, true)) all.comment(all.backinx, "D1");
 //if (reduce.count < 5) console.log("labdcl%d]", inx, all.backinx, all[inx - 1].match(/\s+movlw\s/i));
                 all.comment(inx, "D2");
                 return;
@@ -268,7 +286,7 @@ function asm_optimize()
 //                return;
 //            }
 //drop redundant banksels:
-            const banksel = /^\s+banksel\s+\(?([a-z0-9_]+)(\+\d+\))?\s*$/i; //CAUTION: ignore offset; assume no bank spanning
+            const banksel = /^\s+banksel\s+\(?([a-z0-9_]+)(\+\d+\))?\s*(;|$)/i; //CAUTION: ignore offset; assume no bank spanning
             if (parts = line.match(banksel))
             {
                 var varname = parts[1], newbank = symtab.bankof(varname, inx + 1);
@@ -306,6 +324,12 @@ function asm_optimize()
             if (line.match(/^\s+MOVF\s+_WREG\s*,\s*W\s*$/i))
             {
                 all.comment(inx, "W1");
+                return;
+            }
+//replace explicit WREG op with implicit (for compatibility with non-PIC16X):
+            if (parts = line.match(/^\s+((incf)|decf)\s+_WREG\s*,\s*F\s*$/i))
+            {
+                all[inx] = `\taddlw ${parts[2]? "1": "0xff"} ;;W2 ` + all[inx];
                 return;
             }
 //invert bit test and remove extraneous singleton jump:
