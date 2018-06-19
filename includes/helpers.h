@@ -277,6 +277,7 @@ NumBits8(val))
 #define Abits(bits16)  ((bits16) >> 8)
 #define BCbits(bits16)  ((bits16) & 0xff)
 
+//didn't help- CAUTION: use "L" to preserve bits/avoid warning
 #define pin2bits16(pin)  ABC2bits(IIFNZ(isPORTA(pin), 1 << PINOF(pin)), IIFNZ(isPORTBC(pin), 1 << PINOF(pin)))
 
 

@@ -185,6 +185,7 @@
 //volatile bit IsCharAvailable @adrsof(pir1).RCIF;
 #define IsCharAvailable  RCIF
 //volatile bit IsRoomAvailable @PIR1_ADDR.TXIF;
+#define IsRoomAvailable  TXIF
 //volatile bit HasInbuf @PIR1_ADDR.RCIF; //char received
 //volatile bit HasFramingError @adrsof(rcsta).FERR; //serial input frame error; input char is junk
 #define HasFramingError  FERR //serial input frame error; input char is junk
@@ -219,6 +220,20 @@ BANK0 volatile union
 //	setbit(rcsta, CREN, TRUE); //re-enable receive
 
 
+//turn serial port off & on:
+//This is used after a BRG change or OERR.
+//inline void Toggle_serio()
+//	setbit(rcsta, SPEN, FALSE);  //;turn off receive to reset FERR (page 92)
+//	setbit(rcsta, SPEN, TRUE);  //;turn on receive again
+//	setbit(rcsta, CREN, FALSE); //turn off to reset OERR (page 92)
+//	setbit(rcsta, CREN, TRUE); //re-enable receive
+#define Toggle_serio(ctlbit)  \
+{ \
+	ctlbit = FALSE; \
+	ctlbit = TRUE; \
+}
+
+
 //flush serial in port:
 //;http://www.pic101.com/mcgahee/picuart.zip says to do this 3x; 2 are probably for the input buffer and 1 for an in-progress char
 INLINE void Flush_serial(void)
@@ -237,7 +252,7 @@ INLINE void Flush_serial(void)
 //only called on frame error
 non_inline void SerialErrorReset(void)
 {
-	ONPAGE(PROTOCOL_PAGE); //put on same page as protocol handler to reduce page selects
+//	ONPAGE(PROTOCOL_PAGE); //put on same page as protocol handler to reduce page selects
 
 //	WREG = rcreg;
 //	SerialWaiting = FALSE;
@@ -254,6 +269,94 @@ non_inline void SerialErrorReset(void)
 //	GetChar_WREG(); //this will clear FERR but not OERR (page 91)
 	Flush_serial(); //FERR will clear as chars are read; this will also clear pir1.RCIF; is this needed?
 //	NoSerialWaiting = TRUE; //clear char-available flag for SerialCheck
+}
+
+
+//check if serial data is waiting:
+//serial data is infrequent (40 usec @250 kbaud, 87 usec @115 kbaud, 174 usec @57 kbaud), so this is optimized for the case of no serial data waiting
+//frame errors occur if RS485 receiver line is open (EUSART sees low and starts async rcv process), so frame errors can be filtered out to avoid false interrupts to timers and demo sequence playback
+//otherwise, treat frame/overrun errors as input so caller can take the appropriate action
+//if there's no char available, then there shouldn't be frame or overrun errors to check either, so first check char available before other checks
+#define RECEIVE_FRAMERRS  FALSE //TRUE //protocol handler (auto baud detect) wants to know about frame errors
+#define FIXUP_FRAMERRS  TRUE //FALSE //protocol handler does not want frame errors, reset serial port and return to caller
+#define SerialCheck(ignore_frerrs, uponserial)  \
+{ \
+	/*WREG = pir1 & (1<<RCIF)*/; /*status.Z => no char available; 2 instr + banksel; NOTE: trashes WREG*/ \
+	if (IsCharAvailable /*!NoSerialWaiting*/) \
+	{ \
+		if (ignore_frerrs && HasFramingError) SerialErrorReset(); /*NoSerialWaiting = TRUE*/ /*ignore frame errors so open RS485 line doesn't interrupt demo sequence*/ \
+		else uponserial; \
+	} \
+}
+//non_inline void protocol(void); //fwd ref
+//handle frame errors in protocol() to reduce caller code space
+//#define BusyPassthru(want_frerrs, ignore)  SerialCheck(/*FIXUP_FRAMERRS*/ /*RECEIVE_FRAMERRS*/ want_frerrs, protocol()) //nextpkt(WaitForSync)) //{ if (IsCharAvailable) protocol(where); } //EchoChar(); } //don't process any special chars; 2 instr if false, 6+5 instr if true (optimized for false)
+
+//	SerialWaiting = FALSE; //already set; else no reason to call this function
+//	if (IsCharAvailable /*pir1.RCIF*/) SerialWaiting = TRUE; //serial data received
+//if there's no char available, then there shouldn't be frame or overrun errors to check either, so first check char available before other checks
+//	if (!NoSerialWaiting /*HasFramingError*/ /*rcsta.FERR*/ && HasFramingError) NoSerialWaiting = TRUE; //ignore frame errors so open RS485 line doesn't interrupt demo sequence
+//	SerialErrorReset(); //filter out frame/overrun errors; this will also clear pir1.RCIF
+//#warning "FIX THIS"
+//	NoSerialWaiting = TRUE;
+
+//#undef SerialCheck
+//#define SerialCheck(ignored)  NoSerialWaiting = TRUE
+//#warning "FIX THIS @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+
+//wait for char:
+//filters out frame errors
+inline void Wait4Char(void)
+{
+	for (;;)
+	{
+		SerialCheck(RECEIVE_FRAMERRS, return); //always return frame errors when caller wants serial data, so caller can decide how to handle it
+//??		SerialCheck(FIXUP_FRAMERRS, return); //always return frame errors when caller wants serial data
+//		if (!NoSerialWaiting) return;
+		if (NEVER) break; //avoid dead code removal
+	}
+}
+
+
+//get next char from serial port:
+//echo is handled by caller
+//also update i/o stats
+//only called if next char is known to be available
+//#define GetChar(buf)  { GetChar_WREG(); buf = WREG; WREG ^= RENARD_SYNC; } //status.Z => got SYNC
+//#define GetCharNoEcho(buf)  { WantEcho = FALSE; GetChar(buf); }
+#define GetChar(buf)  { GetChar_WREG(); buf = WREG; }
+inline void GetChar_WREG(void)
+{
+//	ONPAGE(0);
+
+//	while (!SerialWaiting)
+	Wait4Char();
+//	inc24(iochars.as24); //update I/O stats; count input rather than output
+	WREG = RCREG; //return char to caller in WREG
+}
+
+//busy wait until char available:
+//char is returned in WREG
+//#define WaitChar(buf)  { WaitChar_WREG(); buf = WREG; }
+//inline void WaitChar_WREG(void)
+//{
+//	Wait4Char(); //WANT_FRERR);
+//		SerialErrorReset();
+//	GetChar_WREG();
+//}
+
+
+//send byte down stream:
+//assumes tx rate <= rx rate (no overruns)
+#define PutChar(ch)  { WREG = ch; PutChar_WREG(); }
+inline void PutChar_WREG(void)
+{
+//	if (!SerialWaiting) return;
+	while (!IsRoomAvailable);
+	TXREG = WREG; //rcreg;
+//update I/O stats:
+//	inc24(iochars);
+//	SerialWaiting = FALSE;
 }
 
 

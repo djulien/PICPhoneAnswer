@@ -182,7 +182,7 @@ INLINE void on_tmr_50msec_tick(void)
 {
 	on_tmr_50msec(); //prev event handlers first
     LABDCL(0x10);
-	/*t1con.*/ TMR1ON = FALSE; /*for cumulative intervals, can't use Microchip workaround and must set low byte first, but then need a temp for _WREG variant; just disable timer during update for simplicity*/ \
+	/*t1con.*/ TMR1ON = FALSE; /*for cumulative intervals, can't use Microchip workaround and must set low byte first, but then need a temp for _WREG variant; just disable timer during update for simplicity*/
 //	WREG = TimerPreset(duration, IIF(time_base, 8, 6), which, CLOCK_FREQ) / 0x100; /*BoostC sets LSB first, which might wrap while setting MSB; explicitly set LSB first here to avoid premature wrap*/
 //	if (time_base) tmr1H /*op_##time_base*/ += WREG; else tmr1H = WREG;
 //SDCC uses temps here, so use explicit opcodes:
@@ -193,6 +193,7 @@ INLINE void on_tmr_50msec_tick(void)
 //    TMR1L += TimerPreset(50 msec / 2, 8, Timer1, CLOCK_FREQ) % 0x100; // / 0x100; /*BoostC sets LSB first, which might wrap while setting MSB; explicitly set LSB first here to avoid premature wrap*/
 //    if (CARRY) ++TMR1H;
 //    TMR1H += TimerPreset(50 msec / 2, 8, Timer1, CLOCK_FREQ) / 0x100; /*BoostC sets LSB first, which might wrap while setting MSB; explicitly set LSB first here to avoid premature wrap*/
+    TMR1IF = FALSE; //NOTE: data sheets say this must be cleared in software
 	/*T1CON.*/ TMR1ON = TRUE; /*for cumulative intervals, can't use Microchip workaround and must set low byte first, but then need a temp for _WREG variant; just disable timer during update for simplicity*/
 }
 #undef on_tmr_50msec

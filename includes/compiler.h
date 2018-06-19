@@ -73,8 +73,8 @@
  #define _SEROUT_PIN  PORTPIN(_PORTC, bit2inx(_RC4)) //0xC4C4 //;serial output pin
 // #define CLKIN_PIN  _RA5 //0xA5 //;ext clock pin; might be available for LED control
 // #define _ZC_PIN  PORTPIN(_PORTA, bit2inx(_RA3)) //0xA3  //;this pin can only be used for input; used for ZC/config
- #define PORTA_BITS  0x3f
- #define PORTC_BITS  0x3f
+ #define PORTA_MASK  0x3f
+ #define PORTC_MASK  0x3f
 #elif __SDCC_PIC16F688 //set by cmdline or MPLAB IDE
  #define extern //kludge: force compiler to include defs
  #include <pic14/pic16f688.h>
@@ -84,16 +84,21 @@
  #define HIGHBAUD_OK  TRUE //PIC16F688 rev A.3 or older should be FALSE; newer can be TRUE
 // #define LINEAR_RAM  0x2000
 // #define PIC16F1825
+// #define CMCON0_NEEDINIT  7 //;configure comparator inputs as digital I/O (no comparators); overrides TRISC (page 63, 44, 122); must be OFF for digital I/O to work!
+ #undef init
+ #define init()  { CMCON0 = 7; }
  #define _SERIN_PIN  PORTPIN(_PORTC, bit2inx(_RC5)) //0xC5C5 //;serial input pin
  #define _SEROUT_PIN  PORTPIN(_PORTC, bit2inx(_RC4)) //0xC4C4 //;serial output pin
 // #define CLKIN_PIN  _RA5 //0xA5 //;ext clock pin; might be available for LED control
 // #define _ZC_PIN  PORTPIN(_PORTA, bit2inx(_RA3)) //0xA3  //;this pin can only be used for input; used for ZC/config
- #define PORTA_BITS  0x3f
- #define PORTC_BITS  0x3f
+ #define PORTA_MASK  0x3f
+ #define PORTC_MASK  0x3f
 #else
 //TODO: check other processors here *after* adding any necessary defines elsewhere
  #error RED_MSG "Unsupported/unknown target device"
 #endif
+#define SERIN_MASK  PORTMAP16(_SERIN_PIN)
+#define SEROUT_MASK  PORTMAP16(_SEROUT_PIN)
 
 
 //startup code:
@@ -290,7 +295,7 @@ volatile AT_NONBANKED(0) DummyBits_t dummy_bits;
  #define _PORTBC  0xB0
  #define _PORTB  0xB0
  #define isPORTBC  isPORTB
- #define PORTBC_BITS  PORTB_BITS
+ #define PORTBC_MASK  PORTB_MASK
 #elif defined(PORTC_ADDR)
  #define TRISBC  TRISC
  #define TRISBC_ADDR  TRISC_ADDR
@@ -323,7 +328,7 @@ volatile AT_NONBANKED(0) DummyBits_t dummy_bits;
  #define _PORTBC  0xC0
  #define _PORTC  0xC0
  #define isPORTBC  isPORTC
- #define PORTBC_BITS  PORTC_BITS
+ #define PORTBC_MASK  PORTC_MASK
 #else
  #warning YELLOW_MSG "[INFO] No Port B/C?"
  #define IFPORTB(stmt)  //nop
@@ -583,6 +588,11 @@ INLINE void nop()
 { \
     __asm; \
     xorlw val; __endasm; \
+}
+#define retlw(val)  \
+{ \
+    __asm; \
+    retlw val; __endasm; \
 }
 #define incfsz_WREG(val)  \
 { \

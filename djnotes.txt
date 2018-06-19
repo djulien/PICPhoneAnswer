@@ -30,18 +30,36 @@ https://sourceforge.net/projects/sdcc/files/sdcc/3.6.0/sdcc-src-3.6.0.tar.bz2/do
   sudo make install
 sdcc/src/sdcc-code/sdcc/device/non-free/include/pic14/p‌​ic16f887.h
 
+Node.js versions:
+https://nodejs.org/en/download/releases/
+
 MPLAB:
 http%3A%2F%2Fwww.microchip.com%2F&title=Top%203%20PIC%20C%20Compiler%20-%20The%20Engineering%20Projects&txt=official%20site
 
 PIC pgming on Linux:
+lsusb
 https://www.digitalpeer.com/blog/programming-a-pic-on-linux-tutorial
 git clone https://github.com/psmay/pk2cmd.git
+maybe:
+http://www.thebitbangtheory.com/2011/10/how-to-setup-pic-microcontroller-development-environment-ubuntu-11-10-oneiric-ocelot-piklab-sdcc/
+
+https://www.auelectronics.com/Q3.htm
+http://ww1.microchip.com/downloads/en/DeviceDoc/PICkit%202%20v2.61.00%20Setup%20A.zip   (run setup.exe not .msi with wine)
+http://ww1.microchip.com/downloads/en/DeviceDoc/PICkit%202%20v2.61.00%20Setup%20dotNET%20A.zip  (includes .NET)
+
+PICKit 2 source:
+http://ww1.microchip.com/downloads/en/DeviceDoc/PICkit2_PK2CMD_WIN32_SourceV1-21_RC1.zip
+dev file:
+http://www.microchip.com/forums/download.axd?file=0;749972
+
+Device File editor:
+https://sites.google.com/site/pk2devicefileeditor/
 
 http://curuxa.org/en/Program_PICs_with_a_PICkit2_using_the_command_line_on_Linux
 pk2cmd -B/usr/share/pk2/ -PPIC16F688 -Fbuild/EscapePhone.HEX -M
 pk2cmd -S
 connect, detect: pk2cmd -P
-run code:  pk2cmd -PPIC16F88 [-A4] -T 
+run code:  pk2cmd -PPIC16F88 [-A4] -T       A=voltage 4, 3, 2.5, etc.
 cut power:  pk2cmd -PPIC16F88 -A0
 pgm:  pk2cmd -PPIC16F88 -M [-E] -Ffile.hex                 E=erase     M=pgm  Y=verify
 verify: pk2cmd -B/usr/share/pk2/ -PPIC16F688 -Y -Ffile.hex
