@@ -600,56 +600,71 @@ INLINE void nop()
     __asm; \
     retlw val; __endasm; \
 }
-#define incfsz_WREG(val)  \
-{ \
-    __asm; \
-    incfsz val, W; __endasm; \
-}
 
-
-#define incf(val)  \
+#define incfsz(...)  USE_ARG3(__VA_ARGS__, incfsz_2ARGS, incfsz_1ARG) (__VA_ARGS__)
+#define incfsz_1ARG(val)  incfsz_2ARGS(val, F) //update target reg
+#define incfsz_2ARGS(val, dest)  \
 { \
     __asm; \
-    incf val, F; /*updates target reg*/ __endasm; \
+    incfsz val, dest; __endasm; \
 }
-#define addwf(val)  \
+#define incf(...)  USE_ARG3(__VA_ARGS__, incf_2ARGS, incf_1ARG) (__VA_ARGS__)
+#define incf_1ARG(val)  incf_2ARGS(val, F) //update target reg
+#define incf_2ARGS(val, dest)  \
 { \
     __asm; \
-    addwf val, F; /*updates target reg*/ __endasm; \
+    incf val, dest; __endasm; \
 }
-#define subwf(val)  \
+#define addwf(...)  USE_ARG3(__VA_ARGS__, addwf_2ARGS, addwf_1ARG) (__VA_ARGS__)
+#define incf_1ARG(val)  addwf_2ARGS(val, F) //update target reg
+#define addwf_2ARGS(val, dest)  \
 { \
     __asm; \
-    subwf val, F; /*updates target reg*/ __endasm; \
+    addwf val, dest; __endasm; \
 }
+#define subwf(...)  USE_ARG3(__VA_ARGS__, subwf_2ARGS, subwf_1ARG) (__VA_ARGS__)
+#define subwf_1ARG(val)  subwf_2ARGS(val, F) //update target reg
+#define subwf_2ARGS(val, dest)  \
+{ \
+    __asm; \
+    subwf val, dest; __endasm; \
+}
+#define addwfc(...)  USE_ARG3(__VA_ARGS__, addwfc_2ARGS, addwfc_1ARG) (__VA_ARGS__)
+#define addwfc_1ARG(val)  addwfc_2ARGS(val, F) //update target reg
 #ifdef PIC16X
- #define addwfc(val)  \
+ #define addwfc_2ARGS(val, dest)  \
  { \
     __asm; \
-    addwfc val, F; /*updates target reg*/ __endasm; \
+    addwfc val, dest; __endasm; \
  }
 #else
- #define addwfc(val)  \
+ #define addwfc_2ARGS(val, dest)  \
  { \
     if (CARRY) WREG += 1; /*need to add Carry separately; preserve WREG value and leave Carry set correctly afterward*/ \
     __asm; \
-    addwf val, F; /*updates target reg*/ __endasm; \
+    addwf val, dest; __endasm; \
  }
 #endif
-#define andwf(val)  \
+#define andw(...)  USE_ARG3(__VA_ARGS__, andwf_2ARGS, andwf_1ARG) (__VA_ARGS__)
+#define andwf_1ARG(val)  andwf_2ARGS(val, F) //update target reg
+#define andwf_2ARGS(val, dest)  \
 { \
     __asm; \
-    andwf val, F; /*updates target reg*/ __endasm; \
+    andwf val, dest; __endasm; \
 }
-#define iorwf(val)  \
+#define iorwf(...)  USE_ARG3(__VA_ARGS__, iorwf_2ARGS, iorwf_1ARG) (__VA_ARGS__)
+#define iorwf_1ARG(val)  iorwf_2ARGS(val, F) //update target reg
+#define iorwf_2ARGS(val, dest)  \
 { \
     __asm; \
-    iorwf val, F; /*updates target reg*/ __endasm; \
+    iorwf val, dest; __endasm; \
 }
-#define xorwf(val)  \
+#define xorwf(...)  USE_ARG3(__VA_ARGS__, xorwf_2ARGS, xorwf_1ARG) (__VA_ARGS__)
+#define xorwf_1ARG(val)  xorwf_2ARGS(val, F) //update target reg
+#define xorwf_2ARGS(val, dest)  \
 { \
     __asm; \
-    xorwf val, F; /*updates target reg*/ __endasm; \
+    xorwf val, dest; __endasm; \
 }
 
 
@@ -687,10 +702,12 @@ INLINE void nop()
 //LSLF is preferred over RLF; clears LSB
 //need to use a macro here for efficient access to reg (don't want another temp or stack)
 //#define rl_nc(reg)  
-#define lslf(reg)  \
+#define lslf(...)  USE_ARG3(__VA_ARGS__, lslf_2ARGS, lslf_1ARG) (__VA_ARGS__)
+#define lslf_1ARG(val)  lslf_2ARGS(val, F) //update target reg
+#define lslf_2ARGS(reg, dest)  \
 { \
     __asm; \
-    lslf reg, F; __endasm; \
+    lslf reg, dest; __endasm; \
 }
 #if 0 //broken: need to pass reg by ref
 INLINE void rl_nc(uint8_t reg)
@@ -709,10 +726,12 @@ INLINE VOID rl_nc(reg)  \\
  }
 #endif
 //NOTE: use CARRY as-is; caller set already
-#define rlf(reg)  \
+#define rlf(...)  USE_ARG3(__VA_ARGS__, rlf_2ARGS, rlf_1ARG) (__VA_ARGS__)
+#define rlf_1ARG(val)  rlf_2ARGS(val, F) //update target reg
+#define rlf_2ARGS(reg, dest)  \
 { \
 	__asm; \
-    rlf reg, F; __endasm; \
+    rlf reg, dest; __endasm; \
 }
 
 
@@ -720,16 +739,18 @@ INLINE VOID rl_nc(reg)  \\
 #define swap(reg)  __asm__(" swapf " #reg ",F")
 #define swap_WREG(reg)  __asm__(" swapf " #reg ",W")
 #else
-#define swap(reg)  \
+#define swap(...)  USE_ARG3(__VA_ARGS__, swap_2ARGS, swap_1ARG) (__VA_ARGS__)
+#define swap_1ARG(val)  swap_2ARGS(val, F) //update target reg
+#define swap_2ARGS(reg, dest)  \
 { \
 	__asm; \
-    swapf reg, F; __endasm; \
+    swapf reg, dest; __endasm; \
 }
-#define swap_WREG(reg)  \
-{ \
-	__asm; \
-    swapf reg, W; __endasm; \
-}
+//#define swap_WREG(reg)  \
+//{ \
+//	__asm; \
+//    swapf reg, W; __endasm; \
+//}
 #endif
 
 
@@ -741,6 +762,13 @@ INLINE VOID rl_nc(reg)  \\
 	ctlbit = TRUE; \
 }
 
+
+//set fsr high + low to address:
+#define Indirect(fsr, addr)  \
+{ \
+    fsr##L = (addr) & 0xff; \
+    fsr##H = (addr) / 0x100; /*CAUTION: 1 bit on 16F688*/ \
+}
 
 #ifdef COMPILER_DEBUG //debug
  #ifndef debug

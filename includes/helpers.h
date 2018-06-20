@@ -20,6 +20,26 @@
 #define CONCAT(lhs, rhs) CONCAT_INNER(lhs, rhs)
 #define CONCAT_INNER(lhs, rhs) lhs##rhs
 
+//handle optional macro params:
+//see https://stackoverflow.com/questions/3046889/optional-parameters-with-c-macros?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa
+//for stds way to do it without ##: https://stackoverflow.com/questions/5588855/standard-alternative-to-gccs-va-args-trick?noredirect=1&lq=1
+#define USE_ARG2(one, two, ...)  two
+#define USE_ARG3(one, two, three, ...)  three
+#define USE_ARG4(one, two, three, four, ...)  four
+#define USE_ARG5(one, two, three, four, five, ...)  five
+#define USE_ARG6(one, two, three, four, five, six, ...)  six
+#define USE_ARG7(one, two, three, four, five, six, seven, ...)  seven
+#define USE_ARG8(one, two, three, four, five, six, seven, eight, ...)  eight
+#define USE_ARG9(one, two, three, four, five, six, seven, eight, nine, ...)  nine
+#define USE_ARG10(one, two, three, four, five, six, seven, eight, nine, ten, ...)  ten
+//etc.
+
+
+////////////////////////////////////////////////////////////////////////////////
+////
+/// Color codes
+//
+
 //ANSI color codes (for console output):
 //https://en.wikipedia.org/wiki/ANSI_escape_code
 #define ANSI_COLOR(code)  "\x1b[" code "m"

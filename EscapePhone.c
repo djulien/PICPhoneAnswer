@@ -32,7 +32,7 @@
 #define SERIAL_DEBUG
 #define TIMER1_DEBUG
 #define CLOCK_DEBUG
-#define SCAN_DEBUG
+//#define SCAN_DEBUG
 #define MP3_TEST
 
 
@@ -167,6 +167,7 @@ INLINE void port_init(void)
 //set output pins, leave non-output pins as hi-Z:
     TRISA = PORTA_MASK & ~(Abits(ROWSOUT_MASK) | Abits(SEROUT_MASK)); //0b111111; //Abits(COL_PINS) | Abits(pin2bits16(SERIN);
     TRISBC = PORTBC_MASK & ~(BCbits(ROWSOUT_MASK) | BCbits(SEROUT_MASK)); //0b010000; //BCbits(COL_PINS) | BCbits(pin2bits16(SERIN);
+//    PORTC = 0xff;
     PORTA = PORTBC = 0;
 //    IFCM1CON0(CM1CON0 = 0xff & ~0); //;configure comparator inputs as digital I/O (no comparators); overrides TRISC (page 63, 44, 122); must be OFF for digital I/O to work! needed for PIC16F688; redundant with POR value for PIC16F182X
 //	TRISA = ~PORTA_BITS & TRISA_INIT;
@@ -181,10 +182,11 @@ INLINE void port_init(void)
 
 //check for key pressed:
 //ZERO = key-pressed flag, WREG = key#
-void keypress_WREG()
+#define keypress(var)  { keypress_WREG(); var = WREG; }
+non_inline void keypress_WREG()
 {
 //    CARRY = TRUE;
-    ZERO = FALSE;
+ //   ZERO = FALSE;
 //    for (;;) //scan until key received
 //    {
 //    PORTA = Abits(ROW0);
@@ -210,31 +212,9 @@ void keypress_WREG()
 //    }
 //    CARRY = FALSE;
 //    RETLW(0);
-    ZERO = TRUE;
+//    ZERO = TRUE;
+    retlw(0); //no key
 }
-
-
-#if 0
-INLINE void scankey_50msec(void)
-{
-	on_tmr_50msec(); //prev event handlers first
-    keypress_WREG();
-}
-#undef on_tmr_50msec
-#define on_tmr_50msec()  scankey_50msec() //event handler function chain
-#endif
-
-
-//inline void on_tmr1_debounce()
-//{
-//    on_tmr1();
-//}
-
-//bkg event handler:
-//void yield()
-//{
-//    on_tmr1(); //only need Timer 1 for debounce
-//}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -250,8 +230,8 @@ INLINE void scankey_50msec(void)
 #define PAUSE_CMD  0x0E
 #define FOLDER_CMD  0x0F //select folder
 
-#define Track(val)  mp3_cmd(TRACK_CMD, val)
-#define Volume(val)  mp3_cmd(VOLUME_CMD, val)
+#define Track(trk)  mp3_cmd(TRACK_CMD, trk)
+#define Volume(vol)  mp3_cmd(VOLUME_CMD, vol)
 #define Playback()  mp3_cmd(PLAYBACK_CMD)
 
 
@@ -297,16 +277,10 @@ non_inline void PutChar_chksum_WREG(void)
 //#define PutChar  PutChar_chksum
 
 
-//handle optional macro params:
-//see https://stackoverflow.com/questions/3046889/optional-parameters-with-c-macros?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa
-//for stds way to do it without ##: https://stackoverflow.com/questions/5588855/standard-alternative-to-gccs-va-args-trick?noredirect=1&lq=1
-#define USE_ARG3(one, two, three, ...)  three
-
 //#define mp3_cmd(cmd, param)  { mp3_data.cmd = cmd; mp3_data.param = param; _mp3_cmd(); }
+#define mp3_cmd(...)  USE_ARG3(__VA_ARGS__, mp3_cmd_2ARGS, mp3_cmd_1ARG) (__VA_ARGS__)
 #define mp3_cmd_1ARG(cmdd)  { mp3cmd = cmdd; /*mp3_data.param = 0*/; mp3_send(); }
 #define mp3_cmd_2ARGS(cmdd, paramm)  { mp3cmd = cmdd; mp3param = paramm; mp3_send(); }
-#define mp3_cmd(...)  USE_ARG3(__VA_ARGS__, mp3_cmd_2ARGS, mp3_cmd_1ARG) (__VA_ARGS__)
-
 non_inline void mp3_send(void)
 {
 //    uint8_t param = WREG;
@@ -327,52 +301,80 @@ non_inline void mp3_send(void)
     PutChar(END_BYTE);
 }
 
-#if 0
-//set volume (0..30):
-#define Volume(volume)  { WREG = volume; Volume_WREG(); }
-non_inline void Volume_WREG(void)
-{
-//    uint8_t param = WREG;
-//    BANK0 uint8_t param; param = WREG;
-//sdcc no likey!    static AT_NONBANKED(2) uint8_t param; //non-banked to reduce bank selects during I/O
-    param_put = WREG;
 
-    PutChar(START_BYTE);
-//    checksum_put.as_uint16 = 0; //start new checksum; excludes start byte
-    checksumL_put = checksumH_put = 0; //start new checksum; excludes start byte
-    PutChar_chksum(VER_BYTE);
-    PutChar_chksum(CMDLEN_BYTE);
-    PutChar_chksum(VOLUME_CMD);
-    PutChar_chksum(FALSE); //no feedback
-    PutChar_chksum(0); PutChar_chksum(param_put); //high, low
-//    PutChar(checksum_put.high /*>> 8*/); PutChar(checksum_put.low /*& 0xff*/);
-    PutChar(checksumH_put /*>> 8*/); PutChar(checksumL_put /*& 0xff*/);
-    PutChar(END_BYTE);
+////////////////////////////////////////////////////////////////////////////////
+////
+/// Phone logic:
+//
+
+
+//sound file#s:
+#define DIAL_TONE  xx
+
+non_inline void dial_tone()
+{
+    Volume(10); //TODO: adjust volume?
+    Track(DIAL_TONE);
+    Playback();
 }
 
 
-//select track# for playback:
-#define Playback(sound)  { WREG = sound; Playback_WREG(); }
-non_inline void Playback_WREG(void)
-{
-//    uint8_t param = WREG;
-//    BANK0 uint8_t param; param = WREG;
-//sdcc no likey!    static AT_NONBANKED(2) uint8_t param; //non-banked to reduce bank selects during I/O
-    param_put = WREG;
+//remember number dialed:
+#define NUM_KEYS  4
+BANK0 uint8_t dialed[NUM_KEYS];
+//debounce:
+volatile AT_NONBANKED(4) debounce_key, cur_key;
 
-    PutChar(START_BYTE);
-//    checksum_put.as_uint16 = 0; //start new checksum; excludes start byte
-    checksumL_put = checksumH_put = 0; //start new checksum; excludes start byte
-    PutChar_chksum(VER_BYTE);
-    PutChar_chksum(CMDLEN_BYTE);
-    PutChar_chksum(PLAYTRK_CMD);
-    PutChar_chksum(FALSE); //no feedback
-    PutChar_chksum(0); PutChar_chksum(param_put); //high, low
-//    PutChar(checksum_put.high /*>> 8*/); PutChar(checksum_put.low /*& 0xff*/);
-    PutChar(checksumH_put /*>> 8*/); PutChar(checksumL_put /*& 0xff*/);
-    PutChar(END_BYTE);
+INLINE void phone_init(void)
+{
+	init(); //prev init first
+//TODO: need delay here?
+//    cur_key = new_key = 0;
+//    for (Indirect(FSR0, &dialed[NUM_KEYS]);;) //clear dialed number buf
+//    {
+//        INDF0_PREDEC_ = 0; //^--FSR0 = 0;
+//        if (FSR0L == &dialed[0]) break; //leave FSR0 pointing to first digit
+//    }
+    Indirect(FSR0, &dialed[0]); //leave FSR0 pointing to first digit
+    dialed[NUM_KEYS - 1] = 0; //init for end-of-number checking
+    cur_key = dialed[0] = 0; //init debounce/key-up check on first key press
+    dial_tone(); //play dial tone when handset is lifted (power on)
 }
-#endif
+#undef init
+#define init()  phone_test() //function chain in lieu of static init
+
+
+//keypress handler:
+//debounce and play dtmf tone
+INLINE void keypress_50msec(void)
+{
+	on_tmr_50msec(); //prev event handlers first
+    debounce_key = cur_key; //new_key;
+    keypress(cur_key); //new_key);
+//    if (ZERO) return; //no key pressed
+    if (cur_key != debounce_key) return; //debounce: discard transients
+    if (cur_key == INDF0) return; //no change
+    if (cur_key) Stop(); //key up: cancel previous tone/key
+    if (INDF0) { Track(INDF0); Playback(); } //key down: play dtmf tone for new key
+    cur_key = new_key;
+    if (
+}
+#undef on_tmr_50msec
+#define on_tmr_50msec()  keypress_50msec() //event handler function chain
+
+
+//inline void on_tmr1_debounce()
+//{
+//    on_tmr1();
+//}
+
+//bkg event handler:
+//void yield()
+//{
+//    on_tmr1(); //only need Timer 1 for debounce
+//}
+
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -386,6 +388,8 @@ non_inline void Playback_WREG(void)
 #define _LED_PIN  0xC2
 #define _LED_MASK  PORTMAP16(_LED_PIN)
 
+//toggle LED @1 Hz:
+//tests clock timing and overall hardware
 INLINE void led_1sec(void)
 {
 	on_tmr_1sec(); //prev event handlers first
@@ -398,6 +402,8 @@ INLINE void led_1sec(void)
 
 
 #ifdef MP3_TEST
+//play first MP3 file:
+//tests serial port + DFPlayer
 INLINE void mp3_test(void)
 {
 	init(); //prev init first; NOTE: no race condition with cooperative event handling (no interrupts)
@@ -413,12 +419,13 @@ INLINE void mp3_test(void)
 
 ////////////////////////////////////////////////////////////////////////////////
 ////
-/// Main logic
+/// Main logic:
 //
 
 #include "func_chains.h" //finalize function chains; NOTE: this adds call/return/banksel overhead, but makes debug easier
 
 
+//init + evt handler loop:
 void main(void)
 {
 //	ONPAGE(LEAST_PAGE); //put code where it will fit with no page selects
@@ -426,7 +433,6 @@ void main(void)
 
     debug(); //incl debug info (not executable)
 	init(); //1-time set up of control regs, memory, etc.
-//    PORTC = 0xff;
     for (;;) //poll for events
     {
 //        --PCL;
