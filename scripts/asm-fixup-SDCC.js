@@ -332,6 +332,11 @@ function asm_optimize()
                 all[inx] = `\taddlw ${parts[2]? "1": "0xff"} ;;W2 ` + all[inx];
                 return;
             }
+            if (parts = line.match(/^\s+(clrf)\s+_WREG\s*$/i))
+            {
+                all[inx] = `\tmovlw 0 ;;W3 ` + all[inx];
+                return;
+            }
 //invert bit test and remove extraneous singleton jump:
 //	BTFSC	bitvar,bitnum
 //	GOTO	around

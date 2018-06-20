@@ -41,7 +41,7 @@
 #define MY_WDTCON  \
 (0  \
 	| (WDT_Postscalar /*<< WDTPS0*/ * _WDTPS0) /*;<WDTPS3, WDTPS2, WDTPS1, WDTPS0> form a 4-bit binary value:; 1:64 .. 1:64K postscalar on WDT (page 126)*/ \
-	| IIF0(DONT_CARE, /*1<<SWDTEN*/ _SWDTEN, 0) /*;WDT is enabled via CONFIG; wdtcon has no effect here unless off in CONFIG*/ \
+	| IIFNZ(DONT_CARE, /*1<<SWDTEN*/ _SWDTEN) /*;WDT is enabled via CONFIG; wdtcon has no effect here unless off in CONFIG*/ \
 )
 //IFWDT(non_volatile uint8 FixedAdrs(initialized_wdtcon, WDTCON) = MY_DTCON); //;??NOTE: this seems to turn on WDT even if it shouldn't be on
 #warning CYAN_MSG "TODO: WDT, BOR"

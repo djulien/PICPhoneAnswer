@@ -96,10 +96,10 @@
 //;set this register once at startup only, except that Timer 1 is turned off/on briefly during preset (as recommended by Microchip)
 #define MY_T1CON(clock)  \
 (0 \
-	| IIF(FALSE, /*1<<TMR1GE*/ _TMR1GE, 0) /*;timer 1 gate-enable off (timer 1 always on)*/ \
-	| IIF(FALSE, /*1<<T1OSCEN*/ _T1OSCEN, 0) /*;LP osc disabled (timer 1 source = ext osc)*/ \
-	| IIF(DONT_CARE, /*1<<NOT_T1SYNC*/ _NOT_T1SYNC, 0) /*;no sync with ext clock needed*/ \
-	| /*(0<<TMR1CS0)*/ IIF(FALSE, _TMR1CS0, 0) /*;use system clock (config) always*/ \
+	| IIFNZ(FALSE, /*1<<TMR1GE*/ _TMR1GE) /*;timer 1 gate-enable off (timer 1 always on)*/ \
+	| IIFNZ(FALSE, /*1<<T1OSCEN*/ _T1OSCEN) /*;LP osc disabled (timer 1 source = ext osc)*/ \
+	| IIFNZ(DONT_CARE, /*1<<NOT_T1SYNC*/ _NOT_T1SYNC) /*;no sync with ext clock needed*/ \
+	| /*(0<<TMR1CS0)*/ IIFNZ(FALSE, _TMR1CS0) /*;use system clock (config) always*/ \
 	| /*(1<<TMR1ON)*/ _TMR1ON /*;timer 1 on*/ \
 	| ((NumBits8(Timer1_Prescalar) - 1) /*<< T1CKPS0*/ * _T1CKPS0) /*;prescalar on timer 1 (page 53); <T1CKPS1, T1CKPS0> form a 2-bit binary value*/ \
 )

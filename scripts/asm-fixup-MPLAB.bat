@@ -43,6 +43,7 @@ rem NOTE: requires ln -s sdcc sdcc.exe
 rem %CC% -v
 set INCLUDES=-Iincludes  -I/usr/local/bin/../share/sdcc/non-free/include
 set CFLAGS=-mpic14 -p%DEVICE% --debug-xtra --no-xinit-opt --opt-code-speed --fomit-frame-pointer --use-non-free
+rem set CFLAGS=%CFLAGS% -E
 rem set SOURCE = $(@F:.asm=.c)
 set BASENAME=EscapePhone
 rem set SOURCE=%BASENAME%.c 

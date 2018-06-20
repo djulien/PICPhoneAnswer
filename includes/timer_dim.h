@@ -92,11 +92,11 @@
 //Turns misc control bits on/off, and set prescalar as determined above.
 #define MY_OPTIONS(clock)  \
 (0 \
-	| IIF(FALSE, /*1<<NOT_WPUEN*/ _NOT_WPUEN, 0) /*;enable weak pull-ups on PORTA (needed to pull ZC high when open); might mess up charlieplexing, so turn off for other pins*/ \
-	| IIF(DONT_CARE, /*1<<T0SE*/ _T0SE, 0) /*;Timer 0 source edge: don't care*/ \
-	| IIF(DONT_CARE, /*1<<INTEDG*/ _INTEDG, 0) /*;Ext interrupt not used*/ \
-	| IIF(FALSE, /*1<<PSA*/ _PSA, 0) /*;FALSE => pre-scalar assigned to timer 0, TRUE => WDT*/ \
-	| IIF(FALSE, /*1<<T0CS*/ _T0CS, 0) /*FALSE: Timer 0 clock source = (FOSC/4), TRUE: T0CKI pin*/ \
+	| IIFNZ(FALSE, /*1<<NOT_WPUEN*/ _NOT_WPUEN) /*;enable weak pull-ups on PORTA (needed to pull ZC high when open); might mess up charlieplexing, so turn off for other pins*/ \
+	| IIFNZ(DONT_CARE, /*1<<T0SE*/ _T0SE) /*;Timer 0 source edge: don't care*/ \
+	| IIFNZ(DONT_CARE, /*1<<INTEDG*/ _INTEDG) /*;Ext interrupt not used*/ \
+	| IIFNZ(FALSE, /*1<<PSA*/ _PSA) /*;FALSE => pre-scalar assigned to timer 0, TRUE => WDT*/ \
+	| IIFNZ(FALSE, /*1<<T0CS*/ _T0CS) /*FALSE: Timer 0 clock source = (FOSC/4), TRUE: T0CKI pin*/ \
 	| ((NumBits8(Timer0_Prescalar) - 2) /*<< PS0*/ * _PS0) /*;prescalar value log2*/ \
 )
 

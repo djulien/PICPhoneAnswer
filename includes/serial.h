@@ -6,10 +6,14 @@
 #ifndef _SERIAL_H
 #define _SERIAL_H
 
+#include "compiler.h" //need HIGHBAUD_OK for BAUDCTL, BRSCALER, SPBRG values
+#include "clock.h" //need (defaulted) CLOCK_FREQ for SPBRG value
+
 #define KBAUD  *1000UL
 
 //#define SPBRG_VALUE(baud)  (CLOCK_FREQ / INSTR_CYCLES / (baud) - 1)
-#define SPBRG_VALUE(baud)  (InstrPerSec(CLOCK_FREQ) / (baud) - 1)
+//wrong! #define SPBRG_VALUE(baud)  (InstrPerSec(CLOCK_FREQ) / (baud) - 1)
+#define SPBRG_VALUE(baud)   SPBRG_Preset(CLOCK_FREQ, baud)
 
 #ifndef BAUD_RATE
  #define BAUD_RATE  115200UL //gives SPBRG == 39 @ 4.6 MIPS (18.4 MHz)
@@ -18,10 +22,10 @@
 
 #define MY_BAUDCTL  \
 (0  /*;default to all bits off, then turn on as needed*/ \
-	| IIF(HIGHBAUD_OK, /*1<<BRG16*/ _BRG16, 0)  /*;16-bit baud rate generator; SEE ERRATA PAGE 2 REGARDING BRGH && BRG16; NOT needed since we are NOT using low baud rates*/ \
-	| IIF(FALSE, /*1<<SCKP*/ _SCKP, 0)  /*;synchronous clock polarity select: 1 => xmit inverted; 0 => xmit non-inverted*/ \
-	| IIF(FALSE, /*1<<WUE*/ _WUE, 0)  /*;no wakeup-enable*/ \
-	| IIF(FALSE, /*1<<ABDEN*/ _ABDEN, 0)  /*;no auto-baud rate detect (not reliable - consumes first char, which must be a Break)*/ \
+	| IIFNZ(HIGHBAUD_OK, /*1<<BRG16*/ _BRG16)  /*;16-bit baud rate generator; SEE ERRATA PAGE 2 REGARDING BRGH && BRG16; NOT needed since we are NOT using low baud rates*/ \
+	| IIFNZ(FALSE, /*1<<SCKP*/ _SCKP)  /*;synchronous clock polarity select: 1 => xmit inverted; 0 => xmit non-inverted*/ \
+	| IIFNZ(FALSE, /*1<<WUE*/ _WUE)  /*;no wakeup-enable*/ \
+	| IIFNZ(FALSE, /*1<<ABDEN*/ _ABDEN)  /*;no auto-baud rate detect (not reliable - consumes first char, which must be a Break)*/ \
 )
 
 
@@ -29,13 +33,13 @@
 //;This register will be set at startup, but individual bits may be turned off/on again later to reset the UART.
 #define MY_TXSTA  \
 (0  /*;default to all bits off, then turn on as needed*/ \
-	| IIF(TRUE, /*1<<BRGH*/ _BRGH, 0)  /*;high baud rates*/ \
-	| IIF(FALSE, /*1<<SYNC*/ _SYNC, 0)  /*;async mode*/ \
-	| IIF(FALSE, /*1<<TX9*/ _TX9, 0)  /*;don't want 9 bit data for parity*/ \
-	| IIF(TRUE, /*1<<TXEN*/ _TXEN, 0)  /*;transmit enable (sets TXIF interrupt bit)*/ \
-	| IIF(DONT_CARE, /*1<<CSRC*/ _CSRC, 0)  /*;clock source select; internal for sync mode (master); don't care in async mode; Errata for other devices says to set this even though it's a don't care*/ \
-	| IIF(FALSE, /*1<<SENDB*/ _SENDB, 0)  /*;don't send break on next char (async mode only)*/ \
-	| IIF(FALSE, /*1<<TX9D*/ _TX9D, 0)  /*;clear 9th bit*/ \
+	| IIFNZ(TRUE, /*1<<BRGH*/ _BRGH)  /*;high baud rates*/ \
+	| IIFNZ(FALSE, /*1<<SYNC*/ _SYNC)  /*;async mode*/ \
+	| IIFNZ(FALSE, /*1<<TX9*/ _TX9)  /*;don't want 9 bit data for parity*/ \
+	| IIFNZ(TRUE, /*1<<TXEN*/ _TXEN)  /*;transmit enable (sets TXIF interrupt bit)*/ \
+	| IIFNZ(DONT_CARE, /*1<<CSRC*/ _CSRC)  /*;clock source select; internal for sync mode (master); don't care in async mode; Errata for other devices says to set this even though it's a don't care*/ \
+	| IIFNZ(FALSE, /*1<<SENDB*/ _SENDB)  /*;don't send break on next char (async mode only)*/ \
+	| IIFNZ(FALSE, /*1<<TX9D*/ _TX9D)  /*;clear 9th bit*/ \
 )
 
 
@@ -43,12 +47,12 @@
 //;This register will be set at startup, but individual bits may be turned off/on again later to reset the UART
 #define MY_RCSTA  \
 (0  /*;default to all bits off, then turn on as needed*/ \
-	| IIF(TRUE, /*1<<SPEN*/ _SPEN, 0)  /*;serial port enabled*/ \
-	| IIF(FALSE, /*1<<RX9*/ _RX9, 0)  /*;9 bit receive disabled (no parity)*/ \
-	| IIF(DONT_CARE, /*1<<SREN*/ _SREN, 0)  /*;single receive enable; don't care in async mode*/ \
-	| IIF(TRUE, /*1<<CREN*/ _CREN, 0)  /*;continuous receive enabled*/ \
-	| IIF(DONT_CARE, /*1<<ADDEN*/ _ADDEN, 0)  /*;address detect disabled (not used for async mode)*/ \
-	| IIF(FALSE, /*1<<RX9D*/ _RX9D, 0)  /*;clear 9th bit*/ \
+	| IIFNZ(TRUE, /*1<<SPEN*/ /*_SPEN*/ 0x80UL)  /*;serial port enabled*/ \
+	| IIFNZ(FALSE, /*1<<RX9*/ _RX9)  /*;9 bit receive disabled (no parity)*/ \
+	| IIFNZ(DONT_CARE, /*1<<SREN*/ _SREN)  /*;single receive enable; don't care in async mode*/ \
+	| IIFNZ(TRUE, /*1<<CREN*/ _CREN)  /*;continuous receive enabled*/ \
+	| IIFNZ(DONT_CARE, /*1<<ADDEN*/ _ADDEN)  /*;address detect disabled (not used for async mode)*/ \
+	| IIFNZ(FALSE, /*1<<RX9D*/ _RX9D)  /*;clear 9th bit*/ \
 )
 
 
@@ -61,19 +65,19 @@
 //#define kbaud(freq)  #v((freq)/1000)kb  ;used for text messages only
 //#define BRSCALER  ( ( (MY_BAUDCTL & (1<<BRG16))? 1: 4) * ( (MY_TXSTA & (1<<BRGH))? 1: 4) )  //;denominator portion that depends on BRGH + BRG16
 //macro body too long #define BRSCALER  (IIF(MY_BAUDCTL & (1<<BRG16), 1, 4) * IIF(MY_TXSTA & (1<<BRGH), 1, 4))  //;denominator portion that depends on BRGH + BRG16
-#define BRSCALER  (IIF(MY_BAUDCTL & /*(1<<BRG16)*/ _BRG16, 1, 4) * IIF(MY_TXSTA & /*(1<<BRGH)*/ _BRGH, 1, 4))  //;denominator portion that depends on BRGH + BRG16
+#define BRSCALER  (IIF(MY_BAUDCTL & /*(1<<BRG16)*/ _BRG16, 1UL, 4UL) * IIF(MY_TXSTA & /*(1<<BRGH)*/ _BRGH, 1UL, 4UL))  //;denominator portion that depends on BRGH + BRG16
 #define SPBRG_Preset(clock, baud)  (rdiv(InstrPerSec(clock) / BRSCALER, baud) - 1)  //;s/w programmable baud rate generator value
 #define BAUD_ERRPCT(clock_ignored, baud)  (ABS((100 * BRG_MULT) / ((baud)/100) - 10000 * (BRG_MULT / (baud))) / (BRG_MULT / (baud)))
 //kludge: avoid macro body length errors:
-#if InstrPerSec(CLOCK_FREQ / BRSCALER) == 8 MHz
- #define BRG_MULT  8000000
-#elif InstrPerSec(CLOCK_FREQ / BRSCALER) == 5 MHz
- #define BRG_MULT  5000000
-#elif InstrPerSec(CLOCK_FREQ / BRSCALER) == 4608000 //4.6 MIPS (18.432 MHz clock)
- #define BRG_MULT  4608000
-#else
+//#if InstrPerSec(CLOCK_FREQ / BRSCALER) == 8 MHz
+// #define BRG_MULT  8000000 //8 MIPS
+//#elif InstrPerSec(CLOCK_FREQ / BRSCALER) == 5 MHz
+// #define BRG_MULT  5000000 //5 MIPS
+//#elif InstrPerSec(CLOCK_FREQ / BRSCALER) == 4608000 //4.6 MIPS (18.432 MHz clock)
+// #define BRG_MULT  4608000 //4.6 MIPS
+//#else
  #define BRG_MULT  InstrPerSec(CLOCK_FREQ / BRSCALER)
-#endif
+//#endif
 //#endif
 //#endif
 
@@ -93,13 +97,13 @@
  INLINE void serial_debug(void)
  {
     debug(); //incl prev debug info
-    my_baudctl_debug = MY_BAUDCTL; //should be 3-1 for 2.67 Mbaud
+    my_baudctl_debug = MY_BAUDCTL; //should be 0x08 for 16-bit BRG (high baud rate)
     my_txsta_debug = MY_TXSTA; //should be 0x24 ;set TXEN (enable xmiter) and reset SYNC (set async mode) after setting SPBRG
     my_rcsta_debug = MY_RCSTA; //should be 0x90 ;set SPEN (enable UART and set TX pin for output + RX pin for input) and set CREN (continuous rcv) to enable rcv
-    baud_debug = BAUD_RATE;
-	spbrg16_debug = SPBRG_VALUE(BAUD_RATE); //MAX_BAUD); //will go do some other stuff after this, so don't need to wait for brg to stabilize
+    baud_debug = BAUD_RATE; //115200 == 0x1,c200, 9600 == 0x2580
+	spbrg16_debug = SPBRG_VALUE(BAUD_RATE); //MAX_BAUD); //should be 2 for 2.67 Mbaud @8 MIPS, 39 == 0x27 for 115,200 @4.6 MIPS, or 103 == 0x67 for 9,600 @1 MIPS
     brscalar_debug = BRSCALER;
-    baud_errpct_debug = BAUD_ERRPCT(CLOCK_FREQ, BAUD_RATE);
+    baud_errpct_debug = BAUD_ERRPCT(CLOCK_FREQ, BAUD_RATE); //0x10 == 0.16% (9,600 @1 MIPS)
  }
  #undef debug
  #define debug()  serial_debug()
@@ -325,7 +329,7 @@ inline void Wait4Char(void)
 //#define GetChar(buf)  { GetChar_WREG(); buf = WREG; WREG ^= RENARD_SYNC; } //status.Z => got SYNC
 //#define GetCharNoEcho(buf)  { WantEcho = FALSE; GetChar(buf); }
 #define GetChar(buf)  { GetChar_WREG(); buf = WREG; }
-inline void GetChar_WREG(void)
+non_inline void GetChar_WREG(void)
 {
 //	ONPAGE(0);
 
@@ -349,10 +353,10 @@ inline void GetChar_WREG(void)
 //send byte down stream:
 //assumes tx rate <= rx rate (no overruns)
 #define PutChar(ch)  { WREG = ch; PutChar_WREG(); }
-inline void PutChar_WREG(void)
+non_inline void PutChar_WREG(void)
 {
 //	if (!SerialWaiting) return;
-	while (!IsRoomAvailable);
+	while (!IsRoomAvailable); //TODO: rework as event handler; CAUTION: for now this does a busy wait for output buffer space available
 	TXREG = WREG; //rcreg;
 //update I/O stats:
 //	inc24(iochars);
@@ -370,11 +374,15 @@ INLINE void init_serial(void)
 	init(); //prev init first
 
     LABDCL(0x51);
-	BAUDCON = MY_BAUDCTL; //should be 3-1 for 2.67 Mbaud
+	BAUDCON = MY_BAUDCTL; //should be 0x08 for 16-bit BRG (high baud rate)
 	/*rcsta.*/ SPEN = FALSE; //;disable serial port; some notes say this is required when changing the baud rate
-	SPBRG_16 = SPBRG_VALUE(BAUD_RATE); //MAX_BAUD); //will go do some other stuff after this, so don't need to wait for brg to stabilize
+//NOTE: will go do some other stuff after this, so don't need to wait for brg to stabilize
+//NOTE: SPBRG is not contiguous on older PICs:
+//	SPBRG_16 = SPBRG_VALUE(BAUD_RATE); //MAX_BAUD); //should be 39 == 0x27 for 115,200 @4.6 MIPS, 103 == 0x67 for 9,600 @1 MIPS
+	SPBRGL = SPBRG_VALUE(BAUD_RATE) & 0xff; //MAX_BAUD);
+	SPBRGH = SPBRG_VALUE(BAUD_RATE) >> 8; //MAX_BAUD);
 //	spbrgH = SPBRG(BAUD_RATE) / 0x100;
-//	SPBRGL = SPBRG_VALUE(BAUD_RATE); //MAX_BAUD); //will go do some other stuff after this, so don't need to wait for brg to stabilize
+//	SPBRGL = SPBRG_VALUE(BAUD_RATE); //MAX_BAUD);
 //	SPBRGH = SPBRG_VALUE(BAUD_RATE) / 0x100;
 //;turn serial port off/on after baud rate change:
 	TXSTA = MY_TXSTA; //should be 0x24 ;set TXEN (enable xmiter) and reset SYNC (set async mode) after setting SPBRG

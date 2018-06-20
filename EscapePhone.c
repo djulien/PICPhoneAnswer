@@ -50,26 +50,6 @@
 //#include "outports.h"
 
 
-//TODO: move to helpers:
-//encode port A and port B/C into one 16-bit value to allow subsequent split and generic port logic:
-//port A in upper byte, port B/C in lower byte
-#define PORTAPIN(portpin)  IIFNZ(isPORTA(portpin), PINOF(portpin))
-//#define PORTBPIN(portpin)  IIFNZ(isPORTB(portpin), PINOF(portpin))
-//#define PORTCPIN(portpin)  IIFNZ(isPORTC(portpin), PINOF(portpin))
-#define PORTBCPIN(portpin)  IIFNZ(isPORTBC(portpin), PINOF(portpin))
-
-//CAUTION: use "UL" to preserve bits/avoid warning
-#define PORTAMASK(portpin)  IIFNZ(isPORTA(portpin), 1UL << PINOF(portpin))
-//#define PORTBMASK(portpin)  IIFNZ(isPORTB(portpin), 1 << PINOF(portpin))
-//#define PORTCMASK(portpin)  IIFNZ(isPORTC(portpin), 1 << PINOF(portpin))
-#define PORTBCMASK(portpin)  IIFNZ(isPORTBC(portpin), 1UL << PINOF(portpin))
-//#define pin2bits16(pin)  ABC2bits(IIFNZ(isPORTA(pin), 1 << PINOF(pin)), IIFNZ(isPORTBC(pin), 1 << PINOF(pin)))
-#define PORTMAP16(portpin)  ((PORTAMASK(portpin) << 8) | PORTBCMASK(portpin))
-//#define ABC2bits16(Abits, BCbits)  ((Abits) << 8) | ((Bbits) & 0xff))
-#define Abits(bits16)  ((bits16) >> 8) //& PORTA_MASK
-#define BCbits(bits16)  ((bits16) & 0xff) //& PORTBC_MASK
-
-
 ////////////////////////////////////////////////////////////////////////////////
 ////
 /// Keyboard scanning:
@@ -80,39 +60,40 @@
 //#define _LED_PIN  0xC2
 //#define _LED_MASK  PORTMAP16(_LED_PIN)
 #define COL6_PIN  RA5
-#define COL7_PIN  RA4
-#define COL8_PIN  RA2
-
-#define ROW0_PIN  RC0
-#define ROW1_PIN  RC1
-#define ROW2_PIN  RC2
-#define ROW3_PIN  RC3
-
 #define _COL6_PIN  0xA5
-#define _COL7_PIN  0xA4
-#define _COL8_PIN  0xA2
-
-#define _ROW0_PIN  0xC0
-#define _ROW1_PIN  0xC1
-#define _ROW2_PIN  0xC2
-#define _ROW3_PIN  0xC3
-
 #define COL6_MASK  PORTMAP16(_COL6_PIN)
+
+#define COL7_PIN  RA4
+#define _COL7_PIN  0xA4
 #define COL7_MASK  PORTMAP16(_COL7_PIN)
+
+#define COL8_PIN  RA2
+#define _COL8_PIN  0xA2
 #define COL8_MASK  PORTMAP16(_COL8_PIN)
 
+#define ROW0_PIN  RC0
+#define _ROW0_PIN  0xC0
 #define ROW0_MASK  PORTMAP16(_ROW0_PIN)
+
+#define ROW1_PIN  RC1
+#define _ROW1_PIN  0xC1
 #define ROW1_MASK  PORTMAP16(_ROW1_PIN)
+
+#define ROW2_PIN  RC2
+#define _ROW2_PIN  0xC2
 #define ROW2_MASK  PORTMAP16(_ROW2_PIN)
+
+#define ROW3_PIN  RC3
+#define _ROW3_PIN  0xC3
 #define ROW3_MASK  PORTMAP16(_ROW3_PIN)
 
-//rows = output, cols = input (allows slightly more efficient scanning):
 #define COLPORT  PORTA
 #define ROWPORT  PORTBC
 #define COLbits(bits16)  Abits(bits16)
 #define ROWbits(bits16)  BCbits(bits16)
 
 //combine for generic port logic:
+//rows = output, cols = input (allows slightly more efficient scanning):
 //#define COL_PINS  ((PIN2BIT(RA5) | PIN2BIT(RA4) | PIN2BIT(RA2)) << 8)
 //#define ROW_PINS  (PIN2BIT(RC0) | PIN2BIT(RC0) | PIN2BIT(RC0) | PIN2BIT(RC0))
 #define COLSIN_MASK  (COL6_MASK | COL7_MASK | COL8_MASK)
@@ -153,15 +134,15 @@
  {
     debug(); //incl prev debug info
 //use 16 bits to show port + pin:
-    scan_debug_val1 = COL6_MASK;
-    scan_debug_val2 = ROW3_MASK;
+    scan_debug_val1 = COL6_MASK; //0b100000,000000 == 0x20,0
+    scan_debug_val2 = ROW3_MASK; //0b000000,001000 == 0x0,08
 //    scan_debug_val3 = ROWSOUT_MASK;
-    scan_debug_val3 = Abits(ROWSOUT_MASK);
-    scan_debug_val4 = BCbits(ROWSOUT_MASK);
-    scan_debug_val5 = ROWbits(ROW1_MASK);
+    scan_debug_val3 = Abits(ROWSOUT_MASK); //0
+    scan_debug_val4 = BCbits(ROWSOUT_MASK); //0x0f
+    scan_debug_val5 = ROWbits(ROW1_MASK); //0b000010 == 2
 //    scan_debug_val6 = ROW1_MASK;
-    scan_debug_val6 = COLbits(ROW1_MASK);
-    scan_debug_val7 = 0xff & ~0;
+    scan_debug_val6 = COLbits(ROW1_MASK); //0
+    scan_debug_val7 = 0xff & ~0; //0xff
 
 //    serin_debug = _SERIN_PIN;
 //    serout_debug = _SEROUT_PIN;
@@ -177,7 +158,6 @@
 //grouped to reduce bank selects
 INLINE void port_init(void)
 {
-	init(); //prev init first; NOTE: no race condition with cooperative event handling (no interrupts)
 //enable digital I/O, disable analog functions:
 	IFANSELA(ANSELA = 0); //must turn off analog functions for digital I/O
 	IFANSELBC(ANSELBC = 0);
@@ -193,6 +173,7 @@ INLINE void port_init(void)
 //	TRISBC = PORTBC_BITS & TRISBC_INIT;
 //	PORTA = 0;
 //	PORTBC = 0;
+	init(); //do other init after Ports (to minimize side effects on external circuits); NOTE: no race condition occur with cooperative event handling (no interrupts)
 }
 #undef init
 #define init()  port_init() //function chain in lieu of static init
@@ -233,13 +214,15 @@ void keypress_WREG()
 }
 
 
+#if 0
 INLINE void scankey_50msec(void)
 {
 	on_tmr_50msec(); //prev event handlers first
-//    keypress_WREG();
+    keypress_WREG();
 }
 #undef on_tmr_50msec
 #define on_tmr_50msec()  scankey_50msec() //event handler function chain
+#endif
 
 
 //inline void on_tmr1_debounce()
@@ -259,18 +242,23 @@ INLINE void scankey_50msec(void)
 /// MP3 player (controlled by serial port):
 //
 
-
 //DFPlayer commands (see datasheet):
-#define PLAYTRK_CMD  0x03
-#define VOLUME_CMD  0x06
+#define TRACK_CMD  0x03 //select track
+#define VOLUME_CMD  0x06 //set volume 0..30
 #define RESET_CMD  0x0C
-#define START_CMD  0x0D //??
+#define PLAYBACK_CMD  0x0D
+#define PAUSE_CMD  0x0E
+#define FOLDER_CMD  0x0F //select folder
+
+#define Track(val)  mp3_cmd(TRACK_CMD, val)
+#define Volume(val)  mp3_cmd(VOLUME_CMD, val)
+#define Playback()  mp3_cmd(PLAYBACK_CMD)
 
 
 //command buffer:
 #define START_BYTE  0x7E //firsst byte
 #define VER_BYTE  0xFF //second byte
-//length = third byte
+#define CMDLEN_BYTE  6 //3rd byte = #bytes following
 //command = 4th byte
 //feedback flag = 5th byte
 //param = 6th, 7th bytes (high, low)
@@ -278,34 +266,113 @@ INLINE void scankey_50msec(void)
 #define END_BYTE  0xEF
 
 
+//sdcc generates poor code: volatile AT_NONBANKED(0) uint2x8_t checksum_put; //non-banked to reduce bank selects during I/O
+//sdcc generates extra temps with struct access, so don't use struct!
+//volatile AT_NONBANKED(0) uint8_t checksumL_put, checksumH_put; //non-banked to reduce bank selects during I/O
+//volatile AT_NONBANKED(2) uint8_t param_put; //non-banked to reduce bank selects during I/O
+//volatile AT_NONBANKED(0) struct
+//{
+//    uint8_t checksumL, checksumH;
+//    uint8_t cmd, param;
+//} mp3_data; //non-banked to reduce bank selects during I/O
+//volatile AT_NONBANKED(0) uint8_t mp3_data[4];
+//#define mp3checksumL  mp3_data[0]
+//#define mp3checksumH  mp3_data[1]
+//#define mp3cmd  mp3_data[2]
+//#define mp3param  mp3_data[3]
+volatile AT_NONBANKED(0) uint8_t mp3checksumL, mp3checksumH, mp3cmd, mp3param;
+
+
+//generate checksum during I/O:
+//BANK0 uint16_t checksum;
+#define PutChar_chksum(ch)  { WREG = ch; PutChar_chksum_WREG(); }
+non_inline void PutChar_chksum_WREG(void)
+{
+//SDCC generates poor code; help it out here:
+//    checksum.as_uint16 -= WREG; //checksum is -ve of version .. param bytes; subtract along the way to avoid extra negation at end
+    mp3checksumL -= WREG; if (BORROW) --mp3checksumH;
+    PutChar(WREG);
+}
+//#undef PutChar
+//#define PutChar  PutChar_chksum
+
+
+//handle optional macro params:
+//see https://stackoverflow.com/questions/3046889/optional-parameters-with-c-macros?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa
+//for stds way to do it without ##: https://stackoverflow.com/questions/5588855/standard-alternative-to-gccs-va-args-trick?noredirect=1&lq=1
+#define USE_ARG3(one, two, three, ...)  three
+
+//#define mp3_cmd(cmd, param)  { mp3_data.cmd = cmd; mp3_data.param = param; _mp3_cmd(); }
+#define mp3_cmd_1ARG(cmdd)  { mp3cmd = cmdd; /*mp3_data.param = 0*/; mp3_send(); }
+#define mp3_cmd_2ARGS(cmdd, paramm)  { mp3cmd = cmdd; mp3param = paramm; mp3_send(); }
+#define mp3_cmd(...)  USE_ARG3(__VA_ARGS__, mp3_cmd_2ARGS, mp3_cmd_1ARG) (__VA_ARGS__)
+
+non_inline void mp3_send(void)
+{
+//    uint8_t param = WREG;
+//    BANK0 uint8_t param; param = WREG;
+//sdcc no likey!    static AT_NONBANKED(2) uint8_t param; //non-banked to reduce bank selects during I/O
+//    param_put = WREG;
+
+    PutChar(START_BYTE);
+//    checksum_put.as_uint16 = 0; //start new checksum; excludes start byte
+    mp3checksumL = mp3checksumH = 0; //start new checksum; excludes start byte
+    PutChar_chksum(VER_BYTE);
+    PutChar_chksum(CMDLEN_BYTE);
+    PutChar_chksum(mp3cmd);
+    PutChar_chksum(FALSE); //no feedback
+    PutChar_chksum(0); PutChar_chksum(mp3param); //high, low
+//    PutChar(checksum_put.high /*>> 8*/); PutChar(checksum_put.low /*& 0xff*/);
+    PutChar(mp3checksumH /*>> 8*/); PutChar(mp3checksumL /*& 0xff*/);
+    PutChar(END_BYTE);
+}
+
+#if 0
+//set volume (0..30):
 #define Volume(volume)  { WREG = volume; Volume_WREG(); }
 non_inline void Volume_WREG(void)
 {
-    uint8_t param = WREG;
+//    uint8_t param = WREG;
+//    BANK0 uint8_t param; param = WREG;
+//sdcc no likey!    static AT_NONBANKED(2) uint8_t param; //non-banked to reduce bank selects during I/O
+    param_put = WREG;
+
     PutChar(START_BYTE);
-    PutChar(VER_BYTE);
-    PutChar(1); //cmd len
-    PutChar(VOLUME_CMD);
-    PutChar(0); //no feedback
-    PutChar(0); PutChar(param); //high, low
-    PutChar(chksumH); PutChar(chksumL);
+//    checksum_put.as_uint16 = 0; //start new checksum; excludes start byte
+    checksumL_put = checksumH_put = 0; //start new checksum; excludes start byte
+    PutChar_chksum(VER_BYTE);
+    PutChar_chksum(CMDLEN_BYTE);
+    PutChar_chksum(VOLUME_CMD);
+    PutChar_chksum(FALSE); //no feedback
+    PutChar_chksum(0); PutChar_chksum(param_put); //high, low
+//    PutChar(checksum_put.high /*>> 8*/); PutChar(checksum_put.low /*& 0xff*/);
+    PutChar(checksumH_put /*>> 8*/); PutChar(checksumL_put /*& 0xff*/);
     PutChar(END_BYTE);
 }
 
 
+//select track# for playback:
 #define Playback(sound)  { WREG = sound; Playback_WREG(); }
 non_inline void Playback_WREG(void)
 {
-    uint8_t param = WREG;
+//    uint8_t param = WREG;
+//    BANK0 uint8_t param; param = WREG;
+//sdcc no likey!    static AT_NONBANKED(2) uint8_t param; //non-banked to reduce bank selects during I/O
+    param_put = WREG;
+
     PutChar(START_BYTE);
-    PutChar(VER_BYTE);
-    PutChar(1); //cmd len
-    PutChar(PLAYTRK_CMD);
-    PutChar(0); //no feedback
-    PutChar(0); PutChar(param); //high, low
-    PutChar(chksumH); PutChar(chksumL);
+//    checksum_put.as_uint16 = 0; //start new checksum; excludes start byte
+    checksumL_put = checksumH_put = 0; //start new checksum; excludes start byte
+    PutChar_chksum(VER_BYTE);
+    PutChar_chksum(CMDLEN_BYTE);
+    PutChar_chksum(PLAYTRK_CMD);
+    PutChar_chksum(FALSE); //no feedback
+    PutChar_chksum(0); PutChar_chksum(param_put); //high, low
+//    PutChar(checksum_put.high /*>> 8*/); PutChar(checksum_put.low /*& 0xff*/);
+    PutChar(checksumH_put /*>> 8*/); PutChar(checksumL_put /*& 0xff*/);
     PutChar(END_BYTE);
 }
+#endif
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -335,7 +402,8 @@ INLINE void mp3_test(void)
 {
 	init(); //prev init first; NOTE: no race condition with cooperative event handling (no interrupts)
     Volume(10); //volume level 0 to 30
-    Playback(1); //play first mp3 (named "0001*.mp3")
+    Track(1); //play first mp3 (named "0001*.mp3")
+    Playback();
     --PCL; //don't do anything else
 }
 #undef init

@@ -79,6 +79,7 @@ pre-rec alpha num mp3:
 http://www.theblog.ca/mp3-audio-files-alphabet
 
 DFPlayer tutorial:
+noise: https://www.dfrobot.com/forum/viewtopic.php?t=3154
 https://www.dfrobot.com/blog-277.html
 *Important note for audio files. Careful read notes below will save you a lot of precious time!
 - DFPlayer Mini read both MP3 and WAV files.

@@ -202,7 +202,7 @@
 #define MY_OSCCON(clock)  \
 (0 \
 	| (IntOsc_Prescalar((clock) / PLL) /*<< IRCF0*/ * _IRCF0) /*set clock speed; bump up to max*/ \
-	| IIF(UseIntOsc /*&& (PLL == 1)*/, 0, /*1 << SCS0*/ _SCS0) /*;use CONFIG clock source (ext clock), else internal osc; NOTE: always use int osc; if there's an ext clock then it failed*/ \
+	| IIFNZ(!UseIntOsc /*&& (PLL == 1)*/, /*1 << SCS0*/ _SCS0) /*;use CONFIG clock source (ext clock), else internal osc; NOTE: always use int osc; if there's an ext clock then it failed*/ \
 )
 
 
@@ -300,7 +300,6 @@ INLINE void debug(void)
 //NOTE: power-up default speed for PIC16F688 is 1 MIPS (4 MHz)
 INLINE void init_clock(void)
 {
-	init(); //prev init first
     LABDCL(0xCF);
 //    debug();
 //??	if (!osccon.OSTS) //running from int osc
@@ -320,6 +319,7 @@ INLINE void init_clock(void)
 		IFPLL(while (!oscstat.PLLR)); /*wait for PLL to stabilize*/
 #endif
 //	}
+	init(); //clock init first to give it more time to stabilize before other logic starts
 }
 #undef init
 #define init()  init_clock() //function chain in lieu of static init

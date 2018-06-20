@@ -75,6 +75,7 @@
 // #define _ZC_PIN  PORTPIN(_PORTA, bit2inx(_RA3)) //0xA3  //;this pin can only be used for input; used for ZC/config
  #define PORTA_MASK  0x3f
  #define PORTC_MASK  0x3f
+
 #elif __SDCC_PIC16F688 //set by cmdline or MPLAB IDE
  #define extern //kludge: force compiler to include defs
  #include <pic14/pic16f688.h>
@@ -93,6 +94,7 @@
 // #define _ZC_PIN  PORTPIN(_PORTA, bit2inx(_RA3)) //0xA3  //;this pin can only be used for input; used for ZC/config
  #define PORTA_MASK  0x3f
  #define PORTC_MASK  0x3f
+
 #else
 //TODO: check other processors here *after* adding any necessary defines elsewhere
  #error RED_MSG "Unsupported/unknown target device"
@@ -212,13 +214,17 @@ struct
 #endif
 
 
+//little endian byte order:
+#define LOW_BYTE  0
+#define HIGH_BYTE  1
+
 //typedef uint8_t[3] uint24_t;
 #define uint24_t  uint32_t //kludge: use pre-defined type and just ignore first byte
 typedef union
 {
-    uint8_t bytes[2];
+    uint8_t bytes[2]; //little endian: low, high
     struct { uint8_t low, high; };
-    uint16_t as_int16;
+    uint16_t as_uint16;
     uint8_t* as_ptr;
 } uint2x8_t;
 

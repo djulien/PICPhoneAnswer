@@ -271,14 +271,20 @@ NumBits8(val))
 #define PORTCPIN(portpin)  IIFNZ(isPORTC(portpin), PINOF(portpin))
 #define PORTBCPIN(portpin)  IIFNZ(isPORTBC(portpin), PINOF(portpin))
 
-//encode port A and port B/C into one 16-bit value:
-//port A in upper byte, port B/C in lower byte
-#define ABC2bits16(Abits, BCbits)  ((Abits) << 8) | ((Bbits) & 0xff))
-#define Abits(bits16)  ((bits16) >> 8)
-#define BCbits(bits16)  ((bits16) & 0xff)
+//CAUTION: use "UL" to preserve bits/avoid warning when combining into 16-bit values
+#define PORTAMASK(portpin)  IIFNZ(isPORTA(portpin), 1UL << PINOF(portpin))
+#define PORTBMASK(portpin)  IIFNZ(isPORTB(portpin), 1UL << PINOF(portpin))
+#define PORTCMASK(portpin)  IIFNZ(isPORTC(portpin), 1UL << PINOF(portpin))
+#define PORTBCMASK(portpin)  IIFNZ(isPORTBC(portpin), 1UL << PINOF(portpin))
 
+//encode port A and port B/C into one 16-bit value to allow subsequent split and generic port logic:
+//port A in upper byte, port B/C in lower byte
 //didn't help- CAUTION: use "L" to preserve bits/avoid warning
-#define pin2bits16(pin)  ABC2bits(IIFNZ(isPORTA(pin), 1 << PINOF(pin)), IIFNZ(isPORTBC(pin), 1 << PINOF(pin)))
+//#define pin2bits16(pin)  ABC2bits(IIFNZ(isPORTA(pin), 1 << PINOF(pin)), IIFNZ(isPORTBC(pin), 1 << PINOF(pin)))
+#define PORTMAP16(portpin)  ((PORTAMASK(portpin) << 8) | PORTBCMASK(portpin))
+//#define ABC2bits16(Abits, BCbits)  ((Abits) << 8) | ((Bbits) & 0xff))
+#define Abits(bits16)  ((bits16) >> 8) //& PORTA_MASK
+#define BCbits(bits16)  ((bits16) & 0xff) //& PORTBC_MASK
 
 
 #endif //ndef _HELPERS_H
