@@ -53,6 +53,10 @@
  #define DEVICE  __SDCC_PROCESSOR
 // #define inline  //not supported
 // #define main  _sdcc_gsinit_startup
+
+//#elif defined(__GNUC__)
+// #warning CYAN_MSG "[INFO] Using GCC compiler (test only)"
+
 #else
 //TODO: check other compilers here *after* adding any necessary defines elsewhere
  #error RED_MSG "Unsupported/unknown compiler"
@@ -76,7 +80,7 @@
  #define PORTA_MASK  0x3f
  #define PORTC_MASK  0x3f
 
-#elif __SDCC_PIC16F688 //set by cmdline or MPLAB IDE
+#elif defined(__SDCC_PIC16F688) //set by cmdline or MPLAB IDE
  #define extern //kludge: force compiler to include defs
  #include <pic14/pic16f688.h>
  #undef extern
@@ -616,7 +620,7 @@ INLINE void nop()
     incf val, dest; __endasm; \
 }
 #define addwf(...)  USE_ARG3(__VA_ARGS__, addwf_2ARGS, addwf_1ARG) (__VA_ARGS__)
-#define incf_1ARG(val)  addwf_2ARGS(val, F) //update target reg
+#define addwf_1ARG(val)  addwf_2ARGS(val, F) //update target reg
 #define addwf_2ARGS(val, dest)  \
 { \
     __asm; \
@@ -746,10 +750,10 @@ INLINE VOID rl_nc(reg)  \\
 	__asm; \
     swapf reg, dest; __endasm; \
 }
-//#define swap_WREG(reg)  \
-//{ \
-//	__asm; \
-//    swapf reg, W; __endasm; \
+//#define swap_WREG(reg)  
+//{ 
+//	__asm; 
+//    swapf reg, W; __endasm; 
 //}
 #endif
 

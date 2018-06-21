@@ -59,16 +59,17 @@
 //#define LED_PIN  RC2
 //#define _LED_PIN  0xC2
 //#define _LED_MASK  PORTMAP16(_LED_PIN)
-#define COL6_PIN  RA5
-#define _COL6_PIN  0xA5
+//NOTE: VPP (RA3) in-only pin does not have WPU when used as I/O pin, so don't use it for column detect
+#define COL6_PIN  RA2
+#define _COL6_PIN  0xA2
 #define COL6_MASK  PORTMAP16(_COL6_PIN)
 
 #define COL7_PIN  RA4
 #define _COL7_PIN  0xA4
 #define COL7_MASK  PORTMAP16(_COL7_PIN)
 
-#define COL8_PIN  RA2
-#define _COL8_PIN  0xA2
+#define COL8_PIN  RA5
+#define _COL8_PIN  0xA5
 #define COL8_MASK  PORTMAP16(_COL8_PIN)
 
 #define ROW0_PIN  RC0
@@ -161,7 +162,8 @@ INLINE void port_init(void)
 //enable digital I/O, disable analog functions:
 	IFANSELA(ANSELA = 0); //must turn off analog functions for digital I/O
 	IFANSELBC(ANSELBC = 0);
-//weak pull-ups for input pins are not floating:
+//use weak pull-ups so open input pins don't float:
+    NOT_RAPU = FALSE; //use WPUA
     WPUA = PORTA_MASK & ~0;
     IFWPUBC(WPUBC = PORTBC_MASK & ~0);
 //set output pins, leave non-output pins as hi-Z:
@@ -222,17 +224,28 @@ non_inline void keypress_WREG()
 /// MP3 player (controlled by serial port):
 //
 
+//NOTE: VPP (RA3) does not have WPU, so use it for Busy detect
+#define NBUSY_PIN  RA3
+#define _NBUSY_PIN  0xA3
+#define NBUSY_MASK  PORTMAP16(_NBUSY_PIN)
+
 //DFPlayer commands (see datasheet):
 #define TRACK_CMD  0x03 //select track
 #define VOLUME_CMD  0x06 //set volume 0..30
+#define LOOP_CMD  0x08
 #define RESET_CMD  0x0C
 #define PLAYBACK_CMD  0x0D
 #define PAUSE_CMD  0x0E
 #define FOLDER_CMD  0x0F //select folder
+#define STOP_CMD  0x16
+
 
 #define Track(trk)  mp3_cmd(TRACK_CMD, trk)
 #define Volume(vol)  mp3_cmd(VOLUME_CMD, vol)
+//??#define Loop(trk)  mp3_cmd(LOOP_CMD, trk)
 #define Playback()  mp3_cmd(PLAYBACK_CMD)
+//#define Pause()  mp3_cmd(PAUSE_CMD)
+#define Stop()  mp3_cmd(STOP_CMD)
 
 
 //command buffer:
@@ -260,7 +273,12 @@ non_inline void keypress_WREG()
 //#define mp3checksumH  mp3_data[1]
 //#define mp3cmd  mp3_data[2]
 //#define mp3param  mp3_data[3]
-volatile AT_NONBANKED(0) uint8_t mp3checksumL, mp3checksumH, mp3cmd, mp3param;
+//NOTE: SDCC doesn't inc address with mult-declares!
+//sdcc wrong: volatile AT_NONBANKED(0) uint8_t mp3checksumL, mp3checksumH, mp3cmd, mp3param;
+volatile AT_NONBANKED(0) uint8_t mp3checksumL;
+volatile AT_NONBANKED(1) uint8_t mp3checksumH;
+volatile AT_NONBANKED(2) uint8_t mp3cmd;
+volatile AT_NONBANKED(3) uint8_t mp3param;
 
 
 //generate checksum during I/O:
@@ -277,6 +295,7 @@ non_inline void PutChar_chksum_WREG(void)
 //#define PutChar  PutChar_chksum
 
 
+//send a command to MP3 player:
 //#define mp3_cmd(cmd, param)  { mp3_data.cmd = cmd; mp3_data.param = param; _mp3_cmd(); }
 #define mp3_cmd(...)  USE_ARG3(__VA_ARGS__, mp3_cmd_2ARGS, mp3_cmd_1ARG) (__VA_ARGS__)
 #define mp3_cmd_1ARG(cmdd)  { mp3cmd = cmdd; /*mp3_data.param = 0*/; mp3_send(); }
@@ -309,7 +328,13 @@ non_inline void mp3_send(void)
 
 
 //sound file#s:
-#define DIAL_TONE  xx
+#define DTMF_TONE(n)  (n) //1..12 ("0" == 10, star == 11, hash == 12)
+#define ANS_CORRECT  13
+#define ANS_INCORRECT(n)  ((n) + 14) //14..18
+#define DIAL_TONE  19
+#define VOICE_DIGIT(n)  ((n) + 20) //20..30 for "0" thru "10"
+#define VOICE_LETTER(n)  ((n) + 31) //31..56 for "A" thru "Z"
+
 
 non_inline void dial_tone()
 {
@@ -319,11 +344,14 @@ non_inline void dial_tone()
 }
 
 
-//remember number dialed:
+//dialed number buffer + debounce:
 #define NUM_KEYS  4
-BANK0 uint8_t dialed[NUM_KEYS];
-//debounce:
-volatile AT_NONBANKED(4) debounce_key, cur_key;
+//#define prev_key  INDF0
+//NOTE: SDCC doesn't inc address with mult-declares!
+//sdcc wrong: volatile AT_NONBANKED(4) uint8_t debounce, cur_key, prev_key; //, dialed[NUM_KEYS];
+volatile AT_NONBANKED(4) uint8_t debounce;
+volatile AT_NONBANKED(5) uint8_t cur_key;
+volatile AT_NONBANKED(6) uint8_t prev_key;
 
 INLINE void phone_init(void)
 {
@@ -335,13 +363,14 @@ INLINE void phone_init(void)
 //        INDF0_PREDEC_ = 0; //^--FSR0 = 0;
 //        if (FSR0L == &dialed[0]) break; //leave FSR0 pointing to first digit
 //    }
-    Indirect(FSR0, &dialed[0]); //leave FSR0 pointing to first digit
-    dialed[NUM_KEYS - 1] = 0; //init for end-of-number checking
-    cur_key = dialed[0] = 0; //init debounce/key-up check on first key press
+//    Indirect(FSR0, &dialed[0]); //leave FSR0 pointing to first digit
+//    dialed[NUM_KEYS - 1] = 0; //init for end-of-number checking
+    cur_key = prev_key = 0; //init debounce/key up check on first key press
     dial_tone(); //play dial tone when handset is lifted (power on)
 }
 #undef init
-#define init()  phone_test() //function chain in lieu of static init
+#define init()  phone_init() //function chain in lieu of static init
+
 
 
 //keypress handler:
@@ -349,15 +378,28 @@ INLINE void phone_init(void)
 INLINE void keypress_50msec(void)
 {
 	on_tmr_50msec(); //prev event handlers first
-    debounce_key = cur_key; //new_key;
+    debounce = cur_key; //new_key;
     keypress(cur_key); //new_key);
 //    if (ZERO) return; //no key pressed
-    if (cur_key != debounce_key) return; //debounce: discard transients
-    if (cur_key == INDF0) return; //no change
-    if (cur_key) Stop(); //key up: cancel previous tone/key
-    if (INDF0) { Track(INDF0); Playback(); } //key down: play dtmf tone for new key
-    cur_key = new_key;
-    if (
+//sdcc wrong code    if (cur_key != debounce) return; //debounce: discard transients
+    WREG = cur_key ^ debounce; if (!ZERO) return; //debounce: discard transients
+//sdcc wrong code    if (/*(FSR0L != &dialed[0])? */ cur_key == prev_key) return; //no change
+    WREG = cur_key ^ prev_key; if (ZERO) return; //no change
+//    if (prev_key) Stop(); //cancel previous tone/key; TODO: is Stop() needed before another Playback()?
+//  if (!_NBUSY_PIN)
+//sdcc poor/wrong code    if (!cur_key) //key released
+    WREG = cur_key; if (ZERO) //key released
+    {
+//sdcc poor/wrong code        if (prev_key) Stop(); //cancel previous tone/key; TODO: is Stop() needed before another Playback()?
+        WREG = prev_key; if (!ZERO) Stop(); //cancel previous tone/key; TODO: is Stop() needed before another Playback()?
+//        state
+//        if (dialed[NUM_KEYS - 1]) return; //wait for more; TODO: timeout?
+//TODO: check for correct number dialed
+    }
+//sdcc poor/wrong code    if (cur_key) { Track(DTMF_TONE(cur_key)); Playback(); } //INDF0_POSTINC = cur_key; return; } //key down: play dtmf tone and store new key
+    WREG = cur_key; if (!ZERO) { Track(DTMF_TONE(cur_key)); Playback(); } //INDF0_POSTINC = cur_key; return; } //key down: play dtmf tone and store new key
+    prev_key = cur_key;
+//    if (dialed[0] == )
 }
 #undef on_tmr_50msec
 #define on_tmr_50msec()  keypress_50msec() //event handler function chain
@@ -384,9 +426,9 @@ INLINE void keypress_50msec(void)
 
 #ifdef CALIBRATE_TIMER
 //NOTE: uses port_init() defined above
-#define LED_PIN  RC2
-#define _LED_PIN  0xC2
-#define _LED_MASK  PORTMAP16(_LED_PIN)
+#define LED_PIN  BUSY_PIN
+#define _LED_PIN  _BUSY_PIN
+#define LED_MASK  BUSY_MASK //PORTMAP16(_LED_PIN)
 
 //toggle LED @1 Hz:
 //tests clock timing and overall hardware
@@ -407,9 +449,7 @@ INLINE void led_1sec(void)
 INLINE void mp3_test(void)
 {
 	init(); //prev init first; NOTE: no race condition with cooperative event handling (no interrupts)
-    Volume(10); //volume level 0 to 30
-    Track(1); //play first mp3 (named "0001*.mp3")
-    Playback();
+//    dial_tone(); //already playing dial tone
     --PCL; //don't do anything else
 }
 #undef init

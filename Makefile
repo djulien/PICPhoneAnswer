@@ -63,6 +63,9 @@ macros:
 dirs:
 	$(CC) $(CFLAGS) $(INCLUDES) --print-search-dirs
 
+test: #$(TARGET:.hex=.c)
+	gcc $(INCLUDES) $(subst build/,,$(TARGET:.hex=.c)) -o $(TARGET:.hex=)
+
 $(TARGET:.hex=.asm): $(@F:.asm=.c)
 	@ echo -e "$(BLUE)compile $(@F:.asm=.c) to asm ...$(NORMAL)"
 #	$(SYNTAX_FIXUP) < $(@F:.asm=.c) > $(@:.asm=.c)
