@@ -283,6 +283,8 @@ non_inline void SerialErrorReset(void)
 //if there's no char available, then there shouldn't be frame or overrun errors to check either, so first check char available before other checks
 #define RECEIVE_FRAMERRS  FALSE //TRUE //protocol handler (auto baud detect) wants to know about frame errors
 #define FIXUP_FRAMERRS  TRUE //FALSE //protocol handler does not want frame errors, reset serial port and return to caller
+#if 0
+//generates "unreachable code" warnings
 #define SerialCheck(ignore_frerrs, uponserial)  \
 { \
 	/*WREG = pir1 & (1<<RCIF)*/; /*status.Z => no char available; 2 instr + banksel; NOTE: trashes WREG*/ \
@@ -292,6 +294,25 @@ non_inline void SerialErrorReset(void)
 		else uponserial; \
 	} \
 }
+#else
+#define SerialCheck(ignore_frerrs, uponserial)  SerialCheck_inner(ignore_frerrs, uponserial) //kludge: force macro eval
+#define SerialCheck_inner(ignore_frerrs, uponserial)  SerialCheck_##ignore_frerrs(uponserial)
+#define SerialCheck_1(uponserial)  \
+{ \
+	/*WREG = pir1 & (1<<RCIF)*/; /*status.Z => no char available; 2 instr + banksel; NOTE: trashes WREG*/ \
+	if (IsCharAvailable /*!NoSerialWaiting*/) \
+	{ \
+		if (HasFramingError) SerialErrorReset(); /*NoSerialWaiting = TRUE*/ /*ignore frame errors so open RS485 line doesn't interrupt demo sequence*/ \
+		else uponserial; \
+	} \
+}
+#define SerialCheck_0(uponserial)  \
+{ \
+	/*WREG = pir1 & (1<<RCIF)*/; /*status.Z => no char available; 2 instr + banksel; NOTE: trashes WREG*/ \
+	if (IsCharAvailable /*!NoSerialWaiting*/) uponserial; \
+}
+#endif
+
 //non_inline void protocol(void); //fwd ref
 //handle frame errors in protocol() to reduce caller code space
 //#define BusyPassthru(want_frerrs, ignore)  SerialCheck(/*FIXUP_FRAMERRS*/ /*RECEIVE_FRAMERRS*/ want_frerrs, protocol()) //nextpkt(WaitForSync)) //{ if (IsCharAvailable) protocol(where); } //EchoChar(); } //don't process any special chars; 2 instr if false, 6+5 instr if true (optimized for false)

@@ -69,6 +69,7 @@ function asm_cleanup()
         const neither = 2; //not true or false (tri-state)
         var parts;
 
+        buf = buf.replace(/[^a-z0-9_]status[^a-z0-9_]/i, str => str.slice(0, 1) + "_" + str.slice(1)); //kludge: fix bad symbol name
 //;; BANKOPT2 BANKSEL dropped; xyz present in same bank as abc
 //recover all BANKSEL here and decide in next pass whether they are needed
         if (parts = buf.match(/^;; BANKOPT2 BANKSEL dropped; ([a-z0-9_]+) present in same bank as ([a-z0-9_]+)\s*$/i)) // (.*)$/i))
@@ -237,7 +238,7 @@ function asm_optimize()
                     all.comment(inx, "U5"); //leave undefined to catch optimization errors
                     return; //don't alloc "res" space for unneeded vars
                 }
-                if (parts[1].match(/^(_indf\d_(preinc|predec|postinc|postdec)|_labdcl|_swopcode|[psw]save|stk\d+|r0x\d+)$/i))
+                if (parts[1].match(/^(_indf\d_(preinc|predec|postinc|postdec)|_fake_bits|_labdcl|_swopcode|[psw]save|stk\d+|r0x\d+)$/i))
                 {
                     all.comment(inx, "U2"); //leave undefined to catch optimization errors
                     return; //don't alloc "res" space for unneeded vars
@@ -270,6 +271,21 @@ function asm_optimize()
                 all.comment(inx, "D2");
                 return;
             }
+//remove always/never (used to avoid "unreachable code" compiler warnings):
+            if (parts = line.match(/^\s+btf(ss|(sc))\s+_fake_bits,0(\s|$)/i)) //do this before label/jump optimization
+            {
+//                if (all.lookback(/^\s+movlw\s/i, inx, true)) all.comment(all.backinx, "D1");
+                all.comment(inx, "F1"); //remove conditional check
+                if (parts[2]) all.comment(inx + 1, "F2"); //"never" will always be clear; remove following stmt also
+                return;
+            }
+//set banksel optimization level: NO- examine code
+//            if (line.match(/^[^;]*\s+_numbanks(\s|$)/i)) //do this before storage allocation
+//            {
+//                if (all.lookback(/^\s+movlw\s/i, inx, true)) all.comment(all.backinx, "D1");
+//                all.comment(inx, "D2");
+//                return;
+//            }
 //dangling returns:
             const conditionals = /^\s+(btfss|btfsc|decfsz|incfsz)\s/i;
             if (line.match(goaway)) //NOTE: falls thru to other parsing
@@ -286,6 +302,7 @@ function asm_optimize()
 //                return;
 //            }
 //drop redundant banksels:
+//TODO: push banksel before loop/label if only path is following jump
             const banksel = /^\s+banksel\s+\(?([a-z0-9_]+)(\+\d+\))?\s*(;|$)/i; //CAUTION: ignore offset; assume no bank spanning
             if (parts = line.match(banksel))
             {

@@ -151,6 +151,16 @@
 #endif
 
 
+//restart current timer interval:
+//NOTE: fractional interval will be lost
+INLINE void TMR1_reset()
+{
+//	if (relative) TMR0 += Timer0_Preset; 
+    TMR1_16 = U16FIXUP(TMR1_PRESET_50msec); //avoid overflow; / 0x100; /*BoostC sets LSB first, which might wrap while setting MSB; explicitly set LSB first here to avoid premature wrap*/
+    TMR1IF = FALSE; //prevent false trigger first time; NOTE: data sheets say this must be cleared in software
+}
+
+
 #ifndef init
  #define init() //initialize function chain
 #endif
@@ -161,9 +171,11 @@ INLINE void init_tmr1(void)
 	init(); //prev init first
     LABDCL(0x10);
 //    t1con = MY_T1CON;
-    TMR1_16 = U16FIXUP(TMR1_PRESET_50msec); //avoid overflow; / 0x100; /*BoostC sets LSB first, which might wrap while setting MSB; explicitly set LSB first here to avoid premature wrap*/
+//    TMR1_16 = U16FIXUP(TMR1_PRESET_50msec); //avoid overflow; / 0x100; /*BoostC sets LSB first, which might wrap while setting MSB; explicitly set LSB first here to avoid premature wrap*/
 //    TMR1L = TimerPreset(50 msec / 2, 8, Timer1, CLOCK_FREQ) % 0x100; // / 0x100; /*BoostC sets LSB first, which might wrap while setting MSB; explicitly set LSB first here to avoid premature wrap*/
 //    TMR1H = TimerPreset(50 msec / 2, 8, Timer1, CLOCK_FREQ) / 0x100; /*BoostC sets LSB first, which might wrap while setting MSB; explicitly set LSB first here to avoid premature wrap*/
+//    TMR1IF = FALSE; //prevent false trigger first time; NOTE: data sheets say this must be cleared in software
+    reset(TMR1);
 	T1CON = MY_T1CON(CLOCK_FREQ / PLL); //configure + turn on Timer 1; should be 0x21 for 1:4 prescalar
 //    loop_1sec = TMR1_LOOP_1sec;
 }

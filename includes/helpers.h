@@ -20,19 +20,7 @@
 #define CONCAT(lhs, rhs) CONCAT_INNER(lhs, rhs)
 #define CONCAT_INNER(lhs, rhs) lhs##rhs
 
-//handle optional macro params:
-//see https://stackoverflow.com/questions/3046889/optional-parameters-with-c-macros?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa
-//for stds way to do it without ##: https://stackoverflow.com/questions/5588855/standard-alternative-to-gccs-va-args-trick?noredirect=1&lq=1
-#define USE_ARG2(one, two, ...)  two
-#define USE_ARG3(one, two, three, ...)  three
-#define USE_ARG4(one, two, three, four, ...)  four
-#define USE_ARG5(one, two, three, four, five, ...)  five
-#define USE_ARG6(one, two, three, four, five, six, ...)  six
-#define USE_ARG7(one, two, three, four, five, six, seven, ...)  seven
-#define USE_ARG8(one, two, three, four, five, six, seven, eight, ...)  eight
-#define USE_ARG9(one, two, three, four, five, six, seven, eight, nine, ...)  nine
-#define USE_ARG10(one, two, three, four, five, six, seven, eight, nine, ten, ...)  ten
-//etc.
+#define reset(device, ...)  device##_reset(__VA_ARGS__)
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -83,6 +71,8 @@
 //repeat a stmt in-line:
 //cuts down on source code verbosity.
 //intended only for short stmts and low repeat counts
+#if 0
+//generates "unreachable code" warnings
 #define REPEAT(count, stmt)  \
 { \
 	if (count > 0) stmt; \
@@ -102,8 +92,45 @@
 	if (count > 14) stmt; \
 	if (count > 15) stmt; \
 }
+#else
+#define REPEAT(count, stmt)  REPEAT_##count(stmt)
+#define REPEAT_0(stmt)  //noop
+#define REPEAT_1(stmt)  { stmt; REPEAT_0(stmt); }
+#define REPEAT_2(stmt)  { stmt; REPEAT_1(stmt); }
+#define REPEAT_3(stmt)  { stmt; REPEAT_2(stmt); }
+#define REPEAT_4(stmt)  { stmt; REPEAT_3(stmt); }
+#define REPEAT_5(stmt)  { stmt; REPEAT_4(stmt); }
+#define REPEAT_6(stmt)  { stmt; REPEAT_5(stmt); }
+#define REPEAT_7(stmt)  { stmt; REPEAT_6(stmt); }
+#define REPEAT_8(stmt)  { stmt; REPEAT_7(stmt); }
+#define REPEAT_9(stmt)  { stmt; REPEAT_8(stmt); }
+#define REPEAT_10(stmt)  { stmt; REPEAT_9(stmt); }
+#define REPEAT_11(stmt)  { stmt; REPEAT_10(stmt); }
+#define REPEAT_12(stmt)  { stmt; REPEAT_11(stmt); }
+#define REPEAT_13(stmt)  { stmt; REPEAT_12(stmt); }
+#define REPEAT_14(stmt)  { stmt; REPEAT_13(stmt); }
+#define REPEAT_15(stmt)  { stmt; REPEAT_14(stmt); }
+#define REPEAT_16(stmt)  { stmt; REPEAT_15(stmt); }
+#endif
+
 
 #define NOP(n)  REPEAT(n, nop())
+
+#define RETURN  { if (ALWAYS) return; } //avoid "unreachable code" warnings
+
+//handle optional macro params:
+//see https://stackoverflow.com/questions/3046889/optional-parameters-with-c-macros?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa
+//for stds way to do it without ##: https://stackoverflow.com/questions/5588855/standard-alternative-to-gccs-va-args-trick?noredirect=1&lq=1
+#define USE_ARG2(one, two, ...)  two
+#define USE_ARG3(one, two, three, ...)  three
+#define USE_ARG4(one, two, three, four, ...)  four
+#define USE_ARG5(one, two, three, four, five, ...)  five
+#define USE_ARG6(one, two, three, four, five, six, ...)  six
+#define USE_ARG7(one, two, three, four, five, six, seven, ...)  seven
+#define USE_ARG8(one, two, three, four, five, six, seven, eight, ...)  eight
+#define USE_ARG9(one, two, three, four, five, six, seven, eight, nine, ...)  nine
+#define USE_ARG10(one, two, three, four, five, six, seven, eight, nine, ten, ...)  ten
+//etc.
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -182,6 +209,17 @@
 	((val) >= 0x0200) + \
 	((val) >= 0x0100) + \
 NumBits8(val))
+
+
+//convert hex nibble to ASCII char:
+#define hexchar(val)  { WREG = val; hexchar_WREG(); }
+INLINE void hexchar_WREG()
+{
+	andlw(0x0F); //bad code: WREG &= 0x0F;
+	addlw(-10); //bad code: WREG -= 10;
+	if (BORROW) addlw(10 + '0' - 'A'); //bad code: WREG +=
+	addlw('A'); //bad code: WREG += 'A';
+}
 
 
 //convert bit# to pin mask:

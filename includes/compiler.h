@@ -73,8 +73,8 @@
  #define HIGHBAUD_OK  TRUE //PIC16F688 rev A.3 or older should be FALSE; newer can be TRUE
  #define LINEAR_RAM  0x2000
 // #define PIC16F1825
- #define _SERIN_PIN  PORTPIN(_PORTC, bit2inx(_RC5)) //0xC5C5 //;serial input pin
- #define _SEROUT_PIN  PORTPIN(_PORTC, bit2inx(_RC4)) //0xC4C4 //;serial output pin
+ #define _SERIN_PIN  _RC5 //PORTPIN(_PORTC, bit2inx(_RC5)) //0xC5C5 //;serial input pin
+ #define _SEROUT_PIN  _RC4 //PORTPIN(_PORTC, bit2inx(_RC4)) //0xC4C4 //;serial output pin
 // #define CLKIN_PIN  _RA5 //0xA5 //;ext clock pin; might be available for LED control
 // #define _ZC_PIN  PORTPIN(_PORTA, bit2inx(_RA3)) //0xA3  //;this pin can only be used for input; used for ZC/config
  #define PORTA_MASK  0x3f
@@ -92,8 +92,8 @@
 // #define CMCON0_NEEDINIT  7 //;configure comparator inputs as digital I/O (no comparators); overrides TRISC (page 63, 44, 122); must be OFF for digital I/O to work!
  #undef init
  #define init()  { CMCON0 = 7; }
- #define _SERIN_PIN  PORTPIN(_PORTC, bit2inx(_RC5)) //0xC5C5 //;serial input pin
- #define _SEROUT_PIN  PORTPIN(_PORTC, bit2inx(_RC4)) //0xC4C4 //;serial output pin
+ #define _SERIN_PIN  _RC5 //PORTPIN(_PORTC, bit2inx(_RC5)) //0xC5C5 //;serial input pin
+ #define _SEROUT_PIN  _RC4 //PORTPIN(_PORTC, bit2inx(_RC4)) //0xC4C4 //;serial output pin
 // #define CLKIN_PIN  _RA5 //0xA5 //;ext clock pin; might be available for LED control
 // #define _ZC_PIN  PORTPIN(_PORTA, bit2inx(_RA3)) //0xA3  //;this pin can only be used for input; used for ZC/config
  #define PORTA_MASK  0x3f
@@ -137,6 +137,7 @@ void _sdcc_gsinit_startup(void)
 //__code
 //__bit
 //__sfr / __sfr16 / __sfr32 / __sbit
+//TODO: fix these
 #define BANK0  __data //__near
 #define BANK1  __data //__near
 //TODO: sizes > 1
@@ -205,19 +206,6 @@ void _sdcc_gsinit_startup(void)
 //
 
 
-//dummy flags to keep/remove code:
-//(avoids compiler warnings or mishandling of unreachable code)
-#if 0
-volatile AT_NONBANKED(0)
-struct
-{
-    unsigned NEVER: 1;
-} dummy_bits;
-#define NEVER  dummy_bits.NEVER
-#define ALWAYS  !NEVER
-#endif
-
-
 //little endian byte order:
 #define LOW_BYTE  0
 #define HIGH_BYTE  1
@@ -250,14 +238,28 @@ typedef union
  volatile __at(WREG_ADDR) uint8_t WREG; //dummy reg; will be removed by asm fixup
 // volatile bit LEZ @0x70.0; //<= 0
 #endif
+
+//dummy flags to keep/remove code:
+//(avoids compiler warnings or mishandling of unreachable code)
+#if 0
+volatile AT_NONBANKED(0)
+struct
+{
+    unsigned NEVER: 1;
+} dummy_bits;
+#define NEVER  dummy_bits.NEVER
+#define ALWAYS  !NEVER
+#endif
 typedef struct
 {
 //    unsigned      : 7;
-    unsigned NEVER: 1;
-} DummyBits_t;
-volatile AT_NONBANKED(0) DummyBits_t dummy_bits;
+    unsigned NEVER: 1; //lsb
+//    unsigned ALWAYS: 1;
+    unsigned :7; //unused
+} FakeBits_t;
+volatile AT_NONBANKED(0) FakeBits_t FAKE_BITS;
 //volatile bit /*ALWAYS @0x70.0,*/ NEVER @0x70.0; //dummy flags to keep/remove code
-#define NEVER  dummy_bits.NEVER
+#define NEVER  FAKE_BITS.NEVER
 #define ALWAYS  !NEVER
 
 
@@ -564,12 +566,25 @@ volatile AT_NONBANKED(0) uint8_t swopcode;
 }
 
 
+//no- examine code instead
+//tell asm fixup how many banks to use (helps reduce banksel overhead):
+//volatile AT_NONBANKED(0) uint8_t numbanks;
+//#define NUMBANKS(val)  
+//{ 
+//    numbanks = val; 
+//}
+
 //actual opcodes:
 INLINE void nop()
 {
    __asm;
-    nop;
-    __endasm;
+    nop; __endasm;
+}
+
+INLINE void idle()
+{
+   __asm;
+    sleep; __endasm;
 }
 
 //SDCC doesn't seem to know about andlw, iorlw, xorlw, addlw, sublw on structs, so need to explicitly use those opcodes:
@@ -740,16 +755,16 @@ INLINE VOID rl_nc(reg)  \\
 
 
 #if 0
-#define swap(reg)  __asm__(" swapf " #reg ",F")
-#define swap_WREG(reg)  __asm__(" swapf " #reg ",W")
+ #define swap(reg)  __asm__(" swapf " #reg ",F")
+ #define swap_WREG(reg)  __asm__(" swapf " #reg ",W")
 #else
-#define swap(...)  USE_ARG3(__VA_ARGS__, swap_2ARGS, swap_1ARG) (__VA_ARGS__)
-#define swap_1ARG(val)  swap_2ARGS(val, F) //update target reg
-#define swap_2ARGS(reg, dest)  \
-{ \
+ #define swap(...)  USE_ARG3(__VA_ARGS__, swap_2ARGS, swap_1ARG) (__VA_ARGS__)
+ #define swap_1ARG(val)  swap_2ARGS(val, F) //update target reg
+ #define swap_2ARGS(reg, dest)  \
+ { \
 	__asm; \
     swapf reg, dest; __endasm; \
-}
+ }
 //#define swap_WREG(reg)  
 //{ 
 //	__asm; 

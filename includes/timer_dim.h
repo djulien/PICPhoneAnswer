@@ -149,6 +149,19 @@ volatile BANK0 uint8_t Timer0_Preset;
 #endif
 
 
+//#define TMR0_reset(...)  USE_ARG2(__VA_ARGS__, TMR0_reset_1ARG, TMR0_reset_0ARGS) (__VA_ARGS__)
+//#define TMR0_reset_0ARGS(val)  TMR0_reset_1ARG(TRUE) //relative
+//#define TMR0_reset_1ARG(relative)  
+//restart current timer interval:
+//NOTE: fractional interval will be lost
+INLINE void TMR0_reset()
+{
+//	if (relative) TMR0 += Timer0_Preset; 
+//    else
+    TMR0 = Timer0_Preset;
+}
+
+
 //;initialize timer 0:
 INLINE void init_tmr0(void)
 {
@@ -173,6 +186,7 @@ INLINE void on_tmr_dim_tick(void)
 {
 	on_tmr_dim(); //prev event handlers first
     LABDCL(0x01);
+//use += to compensate for overruns:
     TMR0 += Timer0_Preset; //TimerPreset(100 usec, 6, Timer0, CLOCK_FREQ); // / 0x100; /*BoostC sets LSB first, which might wrap while setting MSB; explicitly set LSB first here to avoid premature wrap*/
 }
 #undef on_tmr_dim
@@ -184,6 +198,7 @@ INLINE void on_tmr_dim_tick(void)
 //#endif
 
 //set Timer 0 preset to match ZC rate:
+//check ZC once every second
 INLINE void on_tmr_1sec_dim_preset(void)
 {
 	on_tmr_1sec(); //prev event handlers first

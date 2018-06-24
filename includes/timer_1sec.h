@@ -46,6 +46,15 @@ BANK0 volatile uint8_t loop_1sec;
 #endif
 
 
+//restart current timer interval:
+//NOTE: fractional interval will be lost
+INLINE void TMRX_reset()
+{
+//	if (relative) TMR0 += Timer0_Preset; 
+    loop_1sec = TMR1_LOOP_1sec; //should be 20 == 0x14
+}
+
+
 #ifndef init
  #define init() //initialize function chain
 #endif
@@ -54,7 +63,8 @@ BANK0 volatile uint8_t loop_1sec;
 INLINE void init_tmr_1sec(void)
 {
 	init(); //prev init first
-    loop_1sec = TMR1_LOOP_1sec; //should be 20 == 0x14
+//    loop_1sec = TMR1_LOOP_1sec; //should be 20 == 0x14
+    reset(TMRX);
 }
 #undef init
 #define init()  init_tmr_1sec() //function chain in lieu of static init
