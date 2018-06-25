@@ -16,6 +16,7 @@
 //2. DFPlayer
 //ground pin IO 2 to play successive sound files
 //NOTE: connect DFPlayer RX to PIC TX; DF Player datasheet refers to DF Player's UART, not other device's
+//CAUTION: rename files before copy to SD card; names must start with 4 digits (sequential), but can contain "_" and alphanumerics after that (no "-"s)
 //3. serial port
 //connect FTDI USB-to-serial cable from PC to PIC
 //run "dmesg | grep tty" to show which port to use (Linux)
