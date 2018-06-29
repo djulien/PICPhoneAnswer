@@ -1,10 +1,6 @@
 //Escape room phone player:
 //ASM-fixup script (C) 2010-2018 djulien
 
-//History:
-//1.0  DJ  6/24/18  finally got working
-//1,01  DJ  6/28/18  drop area code, reduce debounce time, resttr timer1 for msec counter, add ring tone
-
 //detect:
 //pk2cmd -p -i
 //pk2cmd -?v
@@ -12,7 +8,6 @@
 //MPLAB build
 //pk2cmd -PPIC16F688 -M -Y -Fbuild/EscapePhone.HEX
 //testing:
-//detect PK2 + device: pk2cmd -p -i
 //run code: pk2cmd -PPIC16F88 [-A5] -T 
 //reset: pk2cmd -PPIC16F688 -R
 //1. code gen
@@ -70,7 +65,7 @@
 #include "config.h"
 //#include "timer_dim.h"
 //#include "timer_50msec.h"
-#include "timer_msec.h"
+#include "timer_1sec.h"
 //#include "wdt.h" //TODO?
 #include "serial.h"
 //#include "zc.h"
@@ -415,29 +410,25 @@ non_inline void mp3_send(void)
 #define DTMF_TONE(n)  (n) // (WREG = n, if (ZERO) WREG = 10, WREG) //IIF(n, n, 10)  //1..12 (10 == "0", 11 == star, 12 == hash)
 #define ANS_CORRECT  13
 #define ANS_INCORRECT(n)  ((n) + 14-1) //14..18 for incorrect#1..5
-#define RING_TONE  18
 #define DIAL_TONE  19
 #define VOICE_DIGIT(n)  ((n) + 20 + FUD) //20..30 for "0" thru "10"
 #define VOICE_LETTER(ch)  ((ch) - 'A' + 1 + 31-1 + FUD) //31..56 for "A" thru "Z"
 
 
 //volatile uint2x8_t svtimer;
-//void wait_50msec()
-//{
-//    reset(TMR1); //start fresh timer interval
+void wait_50msec()
+{
+    reset(TMR1); //start fresh timer interval
 //    svtimer.as_uint16 = tmr1_16;
-//    while (!T1IF);
-//}
+    while (!T1IF);
+}
 
 
 //wait after sending a command:
-//wedged into mp3_send() to simplify caller
-/*INLINE*/ void mp3_send_wait()
+INLINE void mp3_send_wait()
 {
-//TODO: move residual wait before mp3_send() to allow other work while waiting
     mp3_send();
-//    wait_50msec();
-    wait(15 msec); //needs a little time between commands
+    wait_50msec();
 }
 #ifdef mp3_send
  #undef mp3_send
@@ -445,13 +436,12 @@ non_inline void mp3_send(void)
 #define mp3_send()  mp3_send_wait()
 
 
-//volatile NONBANKED uint8_t loop;
-//void wait_1sec()
-//{
-//    for (loop = 0; loop < 20; ++loop)
-//        wait_50msec();
-//    wait_msec(1000);
-//}
+volatile NONBANKED uint8_t loop;
+void wait_1sec()
+{
+    for (loop = 0; loop < 20; ++loop)
+        wait_50msec();
+}
 
 
 #if 0
@@ -476,8 +466,7 @@ non_inline void dial_tone()
 {
 //    NextTrack();
 //    RETURN;
-//    wait_1sec(); //give DF Player time to init
-    wait(1 sec); //give DF Player time to init; seems to need at least 1 sec for ~ 80 files
+    wait_1sec(); //give DF Player time to init
     Volume(20); //15 is kind of faint; 30 is loud; TODO: adjust volume?
     Track(DIAL_TONE); Playback();
 //    Track(DTMF_TONE(0));
@@ -514,13 +503,6 @@ non_inline void dial_tone()
 //volatile NONBANKED uint8_t prev_key;
 //volatile NONBANKED uint8_t delay;
 
-void wait_debounce()
-{
-//    wait(50 msec); //debounce time (50 msec is too slow)
-//TODO: figure out why debounce needs to be so long (~40 msec); is the keypad that bad?
-    wait(40 msec); //debounce time (50 msec is too slow)
-}
-
 //get next key press:
 volatile NONBANKED uint8_t cur_key;
 volatile NONBANKED uint8_t debounce;
@@ -529,7 +511,7 @@ void getkey_WREG()
 {
 //TODO: timeout
     cur_key = 0; //no key pressed
-    for (;; wait_debounce())
+    for (;; wait_50msec())
     {
         debounce = cur_key;
         keypress(cur_key);
@@ -538,8 +520,8 @@ void getkey_WREG()
         if (cur_key == 10) cur_key = 0; //kludge: map back to "0"
         break;
     }
-//    WREG = VOICE_DIGIT(cur_key); //"talking phone"; easier to debug
-    WREG = DTMF_TONE(cur_key); //touch tones; sounds more realistic
+    WREG = VOICE_DIGIT(cur_key); //"talking phone"; easier debug
+//    WREG = DTMF_TONE(debounce);
     Track(WREG); Playback(); //correct ~ 7 sec, incorrect ~ 10 sec
     WREG = cur_key; //return key press to caller
 }
@@ -562,9 +544,9 @@ volatile NONBANKED MyBits_t MY_BITS;
 void accept_call()
 {
     Result = TRUE; //assume correct until proven otherwise
-//    getkey(WREG); xorlw(7); if (!ZERO) Result = FALSE; //wrong
-//    getkey(WREG); xorlw(1); if (!ZERO) Result = FALSE; //wrong
-//    getkey(WREG); xorlw(4); if (!ZERO) Result = FALSE; //wrong
+    getkey(WREG); xorlw(7); if (!ZERO) Result = FALSE; //wrong
+    getkey(WREG); xorlw(1); if (!ZERO) Result = FALSE; //wrong
+    getkey(WREG); xorlw(4); if (!ZERO) Result = FALSE; //wrong
     getkey(WREG); xorlw(5); if (!ZERO) Result = FALSE; //wrong
     getkey(WREG); xorlw(9); if (!ZERO) Result = FALSE; //wrong
     getkey(WREG); xorlw(3); if (!ZERO) Result = FALSE; //wrong
@@ -572,15 +554,9 @@ void accept_call()
     getkey(WREG); xorlw(9); if (!ZERO) Result = FALSE; //wrong
     getkey(WREG); xorlw(0); if (!ZERO) Result = FALSE; //wrong
     getkey(WREG); xorlw(0); if (!ZERO) Result = FALSE; //wrong
-//TODO: funny/insults for wrong numbers :)
 //wait until all digits dialed before revealing result:
-//    wait_1sec(); //allow time for call to go thru
-    wait(500 msec); //allow time for call to go thru; NOTE: voice digits need > 1/2 sec
-    if (Result) //play ring tone; NOTE: simpler just to prepend ring tone to correct answer
-    {
-        Track(RING_TONE); Playback();
-        wait(10 sec); //allow time for a few rings
-    }
+    wait_1sec(); //allow time for call to go thru
+//TODO    Track(RING_TONE); Playback(); REPEAT(4, wait_1sec());
 //only play one result, then quit (caller must hang up and dial again):
     WREG = ANS_CORRECT;
     if (!Result) WREG = ANS_INCORRECT(1);
@@ -674,6 +650,8 @@ INLINE void keypress_50msec(void)
 //}
 
 
+
+
 ////////////////////////////////////////////////////////////////////////////////
 ////
 /// basic hardware tests (blink led, play mp3):
@@ -689,8 +667,7 @@ INLINE void keypress_50msec(void)
 //tests clock timing and overall hardware
 INLINE void led_1sec(void)
 {
-//	on_tmr_1sec(); //prev event handlers first
-    wait(1 sec);
+	on_tmr_1sec(); //prev event handlers first
 	if (LED_PIN) LED_PIN = 0;
     else LED_PIN = 1;
 }
@@ -699,7 +676,7 @@ INLINE void led_1sec(void)
 #endif //def CALIBRATE_TIMER
 
 
-#if 0 //def MP3_TEST
+#ifdef MP3_TEST
 //play first MP3 file:
 //tests serial port + DFPlayer
 INLINE void mp3_test(void)
@@ -718,7 +695,6 @@ INLINE void mp3_test(void)
 /// Main logic:
 //
 
-//TODO: move to yield()?
 #include "func_chains.h" //finalize function chains; NOTE: this adds call/return/banksel overhead, but makes debug easier
 
 
@@ -734,9 +710,8 @@ void main(void)
     {
 //        --PCL;
 //        on_tmr_dim();
-//        on_tmr_50msec(); //CAUTION: must come before tmr_1sec()
-//        on_tmr_1sec();
-        on_tmr_1msec(); //elapsed time counter (msec); TODO: move to yield()?
+        on_tmr_50msec(); //CAUTION: must come before tmr_1sec()
+        on_tmr_1sec();
 //these should probably come last (they use above timers):
 //        on_rx();
 //        on_zc_rise(); //PERF: best: 8 instr (1 usec), worst: 36 instr + I/O func (4.5 usec + 120+ usec)

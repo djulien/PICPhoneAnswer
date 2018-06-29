@@ -15,6 +15,7 @@
 #define msec  *1000UL
 #define sec  *1000000UL
 #define MHz  *1000000UL
+#define KHz  *1000UL
 //#define K  *1024 //needed sooner
 
 
@@ -67,7 +68,7 @@
 
 
 //instruction timing:
-#define INSTR_CYCLES  4 //#clock cycles per instr (constant for PICs)
+#define INSTR_CYCLES  4UL //#clock cycles per instr (constant for PICs)
 //#define CLOCK_FREQ  (eval(DEVICE)##_FREQ)
 //#define CLOCK_FREQ  CLOCK_FREQ_eval(DEVICE) //(eval(DEVICE)##_FREQ)
 //#define CLOCK_FREQ_eval(device)  eval(device)##_FREQ
@@ -183,7 +184,7 @@
 #define TimerPreset(duration, overhead, which, clock)  (0 - rdiv(uSec2Instr(duration, clock) + overhead, which##_Prescalar))
 
 #ifndef LFINTOSC_FREQ
- #define LFINTOSC_FREQ  31250 //31.25 KHz LFINTOSC
+ #define LFINTOSC_FREQ  31250UL //31.25 KHz LFINTOSC
 #endif
 
 //#define IntOsc_MinPrescalarSize  0 //smallest configurable Int Osc prescalar bit size; smallest prescalar is 1:1; 1:1 is actually a special case (LFINTOSC)

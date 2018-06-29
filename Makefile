@@ -9,6 +9,15 @@ DEVICE = 16f1825
 TARGET = build/EscapePhone.hex
 #https://stackoverflow.com/questions/7507810/how-to-source-a-script-in-a-makefile
 include ./scripts/colors.sh
+#kludge: remove quotes that were needed for shell:
+RED := $(RED:'%'=%)
+GREEN := $(GREEN:'%'=%)
+YELLOW := $(YELLOW:'%'=%)
+BLUE := $(BLUE:'%'=%)
+PINK := $(PINK:'%'=%)
+CYAN := $(CYAN:'%'=%)
+GRAY := $(GRAY:'%'=%)
+ENDCOLOR := $(ENDCOLOR:'%'=%)
 
 CC = sdcc
 CPP = g++ -E #-DINLINE=\#define -DHASH=\#
@@ -43,6 +52,7 @@ CFLAGS = -mpic14 -p$(DEVICE) --debug-xtra --no-xinit-opt --opt-code-speed --fomi
 #packihx sdcctest.ihx > sdcctest.hex
 
 #REPORT = grep "pragma message" temp.c
+SDROOT = /media/dj/DFPlayer
 
 #default target:
 all: clean $(TARGET)
@@ -57,6 +67,31 @@ cleaner:
 	rm -f $(TARGET) $(TARGET:.hex=.*)
 #	ls build
 
+pk2:
+	@echo -e "$(BLUE)make $(CYAN)pk2detect$(ENDCOLOR)"
+	@echo -e "$(BLUE)make $(PINK)pk2burn$(ENDCOLOR)"
+	@echo -e "$(BLUE)make $(GREEN)pk2run$(ENDCOLOR)"
+	@echo -e "$(BLUE)make $(RED)pk2reset$(ENDCOLOR)"
+
+pk2detect:
+	pk2cmd -p -i
+
+pk2burn:
+	pk2cmd -PPIC16F688 -M -Y -Fbuild/EscapePhone.HEX
+
+pk2run:
+	pk2cmd -PPIC16F88 -A5 -T
+
+pk2reset:
+	pk2cmd -PPIC16F688 -R
+
+sdcard:
+#	mkdir $(SDROOT)/mp3
+	for sound in `ls ../SDCARD/mp3/*`; \
+	do \
+		cp $$sound $(SDROOT)/mp3; \
+	done;
+
 macros:
 	$(CC) $(CFLAGS) $(INCLUDES) -E -dM ../$(TARGET:.hex=.c)
 
@@ -67,7 +102,7 @@ test: #$(TARGET:.hex=.c)
 	gcc $(INCLUDES) $(subst build/,,$(TARGET:.hex=.c)) -o $(TARGET:.hex=)
 
 $(TARGET:.hex=.asm): $(@F:.asm=.c)
-	@ echo -e "$(BLUE)compile $(@F:.asm=.c) to asm ...$(NORMAL)"
+	@ echo -e "$(BLUE)compile $(@F:.asm=.c) to asm ...$(ENDCOLOR)"
 #	$(SYNTAX_FIXUP) < $(@F:.asm=.c) > $(@:.asm=.c)
 	- $(CC) -S -V $(CFLAGS) $(INCLUDES) $(@F:.asm=.c) -o $(@:.asm=-ugly.asm) 2>$(@:.asm=.out)
 	echo here1
@@ -76,34 +111,34 @@ $(TARGET:.hex=.asm): $(@F:.asm=.c)
 	cat $(@:.asm=.out)
 #consolidate messages by type/color:
 #explicit colors:
-#	@ echo -ne "$(RED)"; cat $(@:.asm=.out) | grep -ie "RED_MSG" | sed s'/RED_MSG\s*//g'; echo -ne "$(NORMAL)"
-#	@ echo -ne "$(YELLOW)"; cat $(@:.asm=.out) | grep -ie "YELLOW_MSG"; echo -ne "$(NORMAL)"
-#	@ echo -ne "$(GREEN)"; cat $(@:.asm=.out) | grep -ie "GREEN_MSG"; echo -ne "$(NORMAL)"
-#	@ echo -ne "$(BLUE)"; cat $(@:.asm=.out) | grep -ie "BLUE_MSG"; echo -ne "$(NORMAL)"
-#	@ echo -ne "$(CYAN)"; cat $(@:.asm=.out) | grep -ie "CYAN_MSG"; echo -ne "$(NORMAL)"
-#	@ echo -ne "$(MAGENTA)"; cat $(@:.asm=.out) | grep -ie "MAGENTA_MSG" -ie "PINK_MSG"; echo -ne "$(NORMAL)"
+#	@ echo -ne "$(RED)"; cat $(@:.asm=.out) | grep -ie "RED_MSG" | sed s'/RED_MSG\s*//g'; echo -ne "$(ENDCOLOR)"
+#	@ echo -ne "$(YELLOW)"; cat $(@:.asm=.out) | grep -ie "YELLOW_MSG"; echo -ne "$(ENDCOLOR)"
+#	@ echo -ne "$(GREEN)"; cat $(@:.asm=.out) | grep -ie "GREEN_MSG"; echo -ne "$(ENDCOLOR)"
+#	@ echo -ne "$(BLUE)"; cat $(@:.asm=.out) | grep -ie "BLUE_MSG"; echo -ne "$(ENDCOLOR)"
+#	@ echo -ne "$(CYAN)"; cat $(@:.asm=.out) | grep -ie "CYAN_MSG"; echo -ne "$(ENDCOLOR)"
+#	@ echo -ne "$(MAGENTA)"; cat $(@:.asm=.out) | grep -ie "MAGENTA_MSG" -ie "PINK_MSG"; echo -ne "$(ENDCOLOR)"
 #implicit colors:
-#	@ echo -ne "$(RED)"; cat $(@:.asm=.out) | grep -iv "[A-Z]_MSG" | grep -ie "error"; echo -ne "$(NORMAL)"
-#	@ echo -ne "$(YELLOW)"; cat $(@:.asm=.out) | grep -iv "[A-Z]_MSG" | grep -iv "unreachable code" | grep -iv "overflow" | grep -ie "warning"; echo -ne "$(NORMAL)"
-#	@ echo -ne "$(GREEN)"; cat $(@:.asm=.out) | grep -iv "[A-Z]_MSG" | grep -ie "success"; echo -ne "$(NORMAL)"
-#	@ echo -ne "$(BLUE)"; cat $(@:.asm=.out) | grep -iv "[A-Z]_MSG" | grep -ie "\[debug\]"; echo -ne "$(NORMAL)"
-#	@ echo -ne "$(CYAN)"; cat $(@:.asm=.out) | grep -iv "[A-Z]_MSG" | grep -ie "\[info\]"; echo -ne "$(NORMAL)"
-#	@ echo -ne "$(MAGENTA)"; cat $(@:.asm=.out) | grep -iv "[A-Z]_MSG" | grep -iv "error" | grep -iv "warning" | grep -iv "unreachable code" | grep -iv "success" | grep -iv "\[debug\]" | grep -iv "\[info\]"; echo -ne "$(NORMAL)"
+#	@ echo -ne "$(RED)"; cat $(@:.asm=.out) | grep -iv "[A-Z]_MSG" | grep -ie "error"; echo -ne "$(ENDCOLOR)"
+#	@ echo -ne "$(YELLOW)"; cat $(@:.asm=.out) | grep -iv "[A-Z]_MSG" | grep -iv "unreachable code" | grep -iv "overflow" | grep -ie "warning"; echo -ne "$(ENDCOLOR)"
+#	@ echo -ne "$(GREEN)"; cat $(@:.asm=.out) | grep -iv "[A-Z]_MSG" | grep -ie "success"; echo -ne "$(ENDCOLOR)"
+#	@ echo -ne "$(BLUE)"; cat $(@:.asm=.out) | grep -iv "[A-Z]_MSG" | grep -ie "\[debug\]"; echo -ne "$(ENDCOLOR)"
+#	@ echo -ne "$(CYAN)"; cat $(@:.asm=.out) | grep -iv "[A-Z]_MSG" | grep -ie "\[info\]"; echo -ne "$(ENDCOLOR)"
+#	@ echo -ne "$(MAGENTA)"; cat $(@:.asm=.out) | grep -iv "[A-Z]_MSG" | grep -iv "error" | grep -iv "warning" | grep -iv "unreachable code" | grep -iv "success" | grep -iv "\[debug\]" | grep -iv "\[info\]"; echo -ne "$(ENDCOLOR)"
 	echo here2
 #	echo -e "$(cat $(@:.asm=.out) | $(IGNORE_UNREACHABLE) | sed 's/error/$(RED)/g')"
 ##	cat $(@:.asm=.out) | grep -v "unreachable code"
 #echo -e "$(sed -e 's/OK/\\033[0;32mOK\\033[0m/g' test_results.txt)"
 #apply asm fixups then run thru mpasm:
-	@ echo -e "$(BLUE)asm fixup ...$(NORMAL)"
+	@ echo -e "$(BLUE)asm fixup ...$(ENDCOLOR)"
 	scripts/asm-fixup-SDCC.js < $(@:.asm=-ugly.asm) > $(@:.asm=-fixup.asm)
 #make a cleaner version for debug/readability:
-	@ echo -e "$(BLUE)asm clean-up...$(NORMAL)"
+	@ echo -e "$(BLUE)asm clean-up...$(ENDCOLOR)"
 	cat $(@:.asm=-fixup.asm) | grep -v "^\s*;" | sed 's/;;.*$$//' >$(@)
 
 too_complicated:
 #	echo src $(@F:.hex=.c)
-	@ echo -e "$(BLUE)translating to c...$(NORMAL)"
-#	source ../scripts/colors.sh && echo -e "$(CYAN) hello $(NORMAL)"
+	@ echo -e "$(BLUE)translating to c...$(ENDCOLOR)"
+#	source ../scripts/colors.sh && echo -e "$(CYAN) hello $(ENDCOLOR)"
 #kludge: run thru sdcc first to extraxct compiler + device macros
 #NOTE: $< (ie, dependency) doesn't seem to work here?
 	@ $(CC) $(CFLAGS) $(INCLUDES) -E -dM $(@F:.asm=.c) 2> /dev/null | grep -e "__SDCC " -e "__SDCC_PIC" | awk '{ print $0; }END{ print "int main(void);\nvoid _sdcc_gsinit_startup(void)\n{\n\tmain();\n}\n# 1"; }' | cat - $(@F:.asm=.c) >$(@:.asm=-prep1.c)
@@ -114,16 +149,16 @@ too_complicated:
 #	@ ($(CPP) $(INCLUDES) $(@:.asm=-prep1.c) | $(REFMT_WARNINGS) > $(@:.asm=-prep2.c)) || (echo "#warning only if errors" >>$(@:.asm=-prep2.c); $(ERRORS_OR_WARNINGS) < $(@:.asm=-prep2.c)) #|| exit 1
 #	@ echo "-----------------------------------"
 #now do the real compile:
-	@ echo -e "$(BLUE)compiling to asm...$(NORMAL)"
+	@ echo -e "$(BLUE)compiling to asm...$(ENDCOLOR)"
 	$(CC) -S -V $(CFLAGS) $(INCLUDES) $(@:.asm=-prep2.c) -o $(@:.asm=-ugly.asm) | $(ERRORS_OR_WARNINGS)
 #apply asm fixups then run thru mpasm:
-	@ echo -e "$(BLUE)fixing up asm...$(NORMAL)"
+	@ echo -e "$(BLUE)fixing up asm...$(ENDCOLOR)"
 	scripts/asm-fixup-SDCC.js <$(@:.asm=-ugly.asm) >$(@)
-	@ echo -e "$(BLUE)cleaning up asm...$(NORMAL)"
+	@ echo -e "$(BLUE)cleaning up asm...$(ENDCOLOR)"
 	cat $(@) | grep -v "^\s*;" >$(@:.asm=-clean.asm)
 
 $(TARGET): $(TARGET:.hex=.asm)
-	@ echo -e "$(BLUE)assembling to hex...$(NORMAL)"
+	@ echo -e "$(BLUE)assembling to hex...$(ENDCOLOR)"
 #	$(MPASM) /p$(DEVICE) $< #/l$(@:.hex=.lst) /e$(@:.hex=.err)
 	$(MPASM) /p$(DEVICE) $<
 #	$(MPLINK)  /p$(DEVICE) $(@:.hex=.o) /z__MPLAB_BUILD=1 /o$(@:.hex=.cof) /M$(@:.hex=.map) /W /x #/u_DEBUG /z__MPLAB_DEBUG=1

@@ -78,12 +78,19 @@ function asm_cleanup()
         if (buf.match(/^\s*;/)) return false; //strip *lots of* comments
         if (buf.match(/^\s+extern\s/i)) return false;
         if (buf.match(/^\s+global\s/i)) return false;
-        if (buf.match(/\scode(\s|$)/i)) { this.push("\n"); return false; } //insert blank line for readabililty
-        if (buf.match(/\scode\s*$/i)) return false;
+//        if (buf.match(/\scode(\s|$)/i)) { this.push("\n"); return false; } //insert blank line for readabililty
+        if (buf.match(/\scode(\s|$)/i)) this.push("\n"); //insert blank line (for debug readabililty)
+//        if (buf.match(/\scode\s*$/i)) return false;
 
         if (buf.match(/\s+movwf\s+_wreg\s*(;|$)/i)) return neither; //TODO: check for a STATUS bit check following
 //        if (!WANT_BANKSEL && buf.match(/\s+banksel\s+_wreg\s*(;|$)/i)) return neither; //TODO: check for a STATUS bit check following
         if (!WANT_PAGESEL && buf.match(/\s+pagesel\s/i)) return neither; //not needed for single code page
+        if (parts = buf.match(/^([a-z0-9_]+)(\s+code)(\s+0x[0-9a-f]+)?\s*(;.*)?$/i)) //rewrite code seg as label + org
+        {
+            if (!parts[3]) { if (!keep.reloc) parts[3] = "0x400"; keep.reloc = true; } //kludge: reloc away from startup vector first time
+            if (parts[3]) { this.push(`\torg ${parts[3]} ;;C1 ${buf}\n`); buf = buf.replace(parts[3], ""); }
+            buf = parts[1] + ":" + (parts[4] || "");
+        }
         buf = buf.replace(/;id=\d+,.*$/i, ""); //TODO: is there useful info in here?
         this.push(buf + "\n"); //include newline to preserve line-based syntax
         return true;
@@ -199,10 +206,11 @@ function asm_optimize()
             var inx = -2; //TODO
             if (!labels[name].definition) console.error(`Undefined label: '${name}' at line ${inx + 1}`.red_lt);
             if (!labels[name].numrefs) lines.comment(labels[name].definition, "U1"); //remove unneeded label (improves optimizations)
+//TODO: remove single-use labels that follow normal flow anyway
         });
 
 //apply optimizations:
-        const goaway = /^\s+(goto\s|braw?\s|return\s*$|retlw\s|retfie\s*$)/i; //won't come back
+        const goaway = /^\s+(goto\s|braw?\s|return\s*$|(retlw)\s|retfie\s*$)/i; //won't come back
         var varadrs, nxtadrs = 0x20; //RAM_START
         lines.forEach((line, inx, all) =>
         {
@@ -256,12 +264,18 @@ function asm_optimize()
 //if (reduce.count < 50) console.log("res[%d] after", inx, all[inx].trimln());
                 return;
             }
-            if (!all.init && line.match(/^\s+nop\s*(;|$)/i)) //first opcode line; TODO: find better way to detect this
-            {
-                all[inx] = "\torg 0 ;;G2 first opc\n" + all[inx] + "\tCLRF PCLATH ;;G3 first code page\n"; //leave first instr as "nop" for debuggers
-                all.init = true;
-                return;
-            }
+//            if (!all.init && line.match(/^\s+nop\s*(;|$)/i)) //first opcode line; TODO: find better way to detect this
+//            {
+//                all[inx] = "\torg 0 ;;G2 first opc\n" + all[inx] + "\tCLRF PCLATH ;;G3 first code page\n"; //leave first instr as "nop" for debuggers
+//                all.init = true;
+//                return;
+//            }
+//            if (typeof all.init == "undefined") //kludge: SDCC can put other code ahead of startup; need to relocate it
+//            {
+//                all[inx] = "\torg 0x400 ;;G5 reloc pre-startup code\n" + all[inx];
+//                all.init = false;
+//                //continue parsing
+//            }
 //remove labdcls (only used for code gen debug):
             if (line.match(/^[^;]*\s+_labdcl(\s|$)/i)) //do this before storage allocation
             {
@@ -288,13 +302,17 @@ function asm_optimize()
 //            }
 //dangling returns:
             const conditionals = /^\s+(btfss|btfsc|decfsz|incfsz)\s/i;
-            if (line.match(goaway)) //NOTE: falls thru to other parsing
+            if (parts = line.match(goaway)) //NOTE: falls thru to other parsing
                 if (all.lookback(goaway, inx, true))
+                {
+                    var svbackparts = all.backparts;
                     if (!all.lookback(conditionals, all.backinx, true))
                     {
-                        all.comment(inx, "G3"); //drop redundant go-away instr
+                        if (parts[2] && svbackparts[2]); //don't comment out lookup table entries
+                        else all.comment(inx, "G4"); //drop redundant go-away instr
                         return;
                     }
+                }
 //symbol fixups:
 //            if (parts = line.match(/^\s+(goto|bra)\s+__sdcc_gsinit_startup\s*$/i)) //special case
 //            {
@@ -382,7 +400,7 @@ function asm_optimize()
                 }
 //use decfsz:
 //TODO: look for incfsz
-            if (line.match(/^\s+btfss\s+status\s*,\s*2\s*(;|$)/i)) //skip if ZERO
+            if (line.match(/^\s+btfss\s+_status\s*,\s*2\s*(;|$)/i)) //skip if ZERO
                 if (parts = all[inx - 1].match(/^\s+iorwf\s+([a-z0-9_]+)\s*,\s*w\s*(;|$)/i))
                     if (all[inx - 2].match(/^\s+movlw\s+0(x00)?\s*(;|$)/i))
                         if (parts = all[inx - 3].match(new RegExp("^\\s+decf\\s+(" + parts[1] + ")\\s*,\\s*([fw])\\s*(;|$)", "i")))
@@ -393,7 +411,8 @@ function asm_optimize()
                             all.comment(inx, "K4");
                             return;
                         }
-//indf pre/post inc opcodes
+//TODO:                        else replace movlw 0 + iorwf with movf,w
+//indf pre/post inc opcodes (PIC16X):
             if (parts = line.match(/^\s+(movwf|movf|clrf)\s+_indf(\d)_(preinc|predec|postinc|postdec)(,W)?\s*$/i))
             {
                 const FancyOpcodes = {movwf: "MOVWI", movf: "MOVIW", clrf: "MOVLW 0\n\tMOVWI"};
